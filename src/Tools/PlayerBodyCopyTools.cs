@@ -10,7 +10,7 @@ namespace PlayerBodySystem
     public class PlayerBodyCopyTools : MonoBehaviour
     {
         [Header("Component to copy the player body system to a new rig.")]
-        [Header("Use context menu (cogwheel in the top right corber of the component).")]
+        [Header("Use context menu (cogwheel in the top right corner of the component).")]
         public Animator OldPlayerBodyAnimator;
         public Animator NewPlayerBodyAnimator;
 
@@ -79,10 +79,11 @@ namespace PlayerBodySystem
         [ContextMenu("Copy PlayerBody components to new rig")]
         public void CopyPlayerBodyComponents()
         {
+            string oldName = NewPlayerBodyAnimator.gameObject.name;
             if (NewPlayerBodyAnimator != null && OldPlayerBodyAnimator != null)
             {
                 GameObject newRig = NewPlayerBodyAnimator.gameObject;
-                VRIK VRIKComponent = OldPlayerBodyAnimator.GetComponent<VRIK>();
+                
                 PlayerBodyHandController controller = NewPlayerBodyAnimator.GetComponentInParent<PlayerBodyHandController>();
                 if (controller != null)
                 {
@@ -102,6 +103,7 @@ namespace PlayerBodySystem
                     Debug.LogError("Couldn't find PlayerBodyLegsController component in NewPlayerBodyAnimator parent!");
                 }
 
+                VRIK VRIKComponent = OldPlayerBodyAnimator.GetComponent<VRIK>();
                 if (VRIKComponent != null)
                 {
                     VRIKComponent = CopyComponentToGameObject(VRIKComponent, newRig);
@@ -149,6 +151,8 @@ namespace PlayerBodySystem
                 {
                     Debug.LogError("PlayerBodyFootPlacer component missing on source rig!");
                 }
+
+                NewPlayerBodyAnimator.gameObject.name = oldName;
             }
             else
             {
@@ -238,7 +242,7 @@ namespace PlayerBodySystem
             destination.SetActive(false);
             Type type = original.GetType();
             Component copy = destination.GetComponent(type) ?? destination.AddComponent(type);
-            BindingFlags flags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
+            BindingFlags flags = BindingFlags.Instance | BindingFlags.Public;
             FieldInfo[] fields = type.GetFields(flags);
             foreach (FieldInfo field in fields)
             {
@@ -252,7 +256,7 @@ namespace PlayerBodySystem
         {
             Type type = reference.GetType();
             //if (type != reference.GetType()) return null; // type mis-match
-            BindingFlags flags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
+            BindingFlags flags = BindingFlags.Instance | BindingFlags.Public;
             PropertyInfo[] pinfos = type.GetProperties(flags);
             foreach (var pinfo in pinfos)
             {
