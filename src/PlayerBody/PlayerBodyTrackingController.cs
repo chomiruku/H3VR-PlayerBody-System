@@ -1,9 +1,14 @@
-﻿using FistVR;
+﻿using BepInEx.Bootstrap;
+using FistVR;
+using OpenScripts2;
 using System.Reflection;
 using UnityEngine;
 
 namespace PlayerBodySystem
 {
+    /// <summary>
+    /// This component handles primarily setting up the trackers. It can also take over tracking if H3MP is not installed.
+    /// </summary>
     public class PlayerBodyTrackingController : MonoBehaviour
     {
         [Header("This component controls how the PlayerBody root and")]
@@ -14,9 +19,6 @@ namespace PlayerBodySystem
         public Transform LeftControllerTracker;
         public Transform RightControllerTracker;
 
-        [HideInInspector]
-        public static Assembly H3MPAssemblyReference;
-
         // Use this for initialization
         public void Start()
         {
@@ -24,9 +26,6 @@ namespace PlayerBodySystem
             HeadsetTracker.SetParent(null);
             LeftControllerTracker.SetParent(null);
             RightControllerTracker.SetParent(null);
-
-            // Try finding H3MP
-            H3MPAssemblyReference = Assembly.Load("H3MP");
         }
 
         // Update is called once per frame
@@ -42,7 +41,7 @@ namespace PlayerBodySystem
             PlayerBodyRoot.rotation = Quaternion.LookRotation(headForward, Vector3.up);
 
             // Take over controller and headset tracking if H3MP couldn't be found.
-            if (H3MPAssemblyReference == null)
+            if (!OpenScripts2_BasePlugin.IsInEditor && H3VRPlayerBodySystem_BepInEx.H3MPLoaded)
             {
                 HeadsetTracker.position = GM.CurrentPlayerBody.Head.position;
                 HeadsetTracker.rotation = GM.CurrentPlayerBody.Head.rotation;

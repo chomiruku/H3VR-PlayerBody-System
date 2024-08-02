@@ -3,6 +3,10 @@ using System.Collections;
 
 namespace PlayerBodySystem
 {
+    /// <summary>
+    /// This is just a straight copy from AngryNoobs/Jerry's original setup.
+    /// I don't exactly know what this does.
+    /// </summary>
     public class PlayerBodyFootPlacer : MonoBehaviour
     {
         [Header("This component provides the foot placement functionality.")]

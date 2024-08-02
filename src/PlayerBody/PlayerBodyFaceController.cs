@@ -4,9 +4,15 @@ using System.Collections.Generic;
 using UnityEngine;
 using FistVR;
 using HarmonyLib;
+using H3MP;
+using static PlayerBodySystem.PlayerBodyHandController;
+using OpenScripts2;
 
 namespace PlayerBodySystem
 {
+    /// <summary>
+    /// I never tested this one, but it was supposed to be for automatic blinking and facial animations for getting hit.
+    /// </summary>
     public class PlayerBodyFaceController : MonoBehaviour
     {
         public Animator PlayerBodyAnimator;
@@ -19,9 +25,31 @@ namespace PlayerBodySystem
         [Header("Pain Animation System")]
         public string PainAnimationTriggerPropertyName = "Pain";
 
+        private static PlayerBodyFaceController PlayerInstance;
+
         public void Start()
         {
+            if (OpenScripts2_BasePlugin.IsInEditor) return;
+
             StartCoroutine(WaitForBlink());
+
+            FVRPlayerBody currentPlayerBody = GM.CurrentPlayerBody;
+            //FVRMovementManager movementManager = GM.CurrentMovementManager;
+            if (Mod.managerObject == null) // H3MP not connected
+            {
+                PlayerInstance = this;
+            }
+            else // H3MP connected, must check whether this body is ours
+            {
+                if (GameManager.currentPlayerBody == GetComponentInParent<FVRPlayerBody>()) // Body is ours
+                {
+                    PlayerInstance = this;
+                }
+                else // Not ours, destroy this
+                {
+                    Destroy(this);
+                }
+            }
         }
 
         private IEnumerator WaitForBlink()
@@ -36,11 +64,12 @@ namespace PlayerBodySystem
             }
         }
 
+        // Patch that hooks into the player getting hit to act as an event to play the hit animation.
         [HarmonyPrefix]
-        [HarmonyPatch(typeof(FVRPlayerBody),nameof(FVRPlayerBody.RegisterPlayerHit))]
-        public void FVRPlayerBodyRegisterPlayerHitPatch()
+        [HarmonyPatch(typeof(FVRPlayerBody), nameof(FVRPlayerBody.RegisterPlayerHit))]
+        public static void FVRPlayerBodyRegisterPlayerHitPatch()
         {
-            PlayerBodyAnimator.SetTrigger(PainAnimationTriggerPropertyName);
+            PlayerInstance.PlayerBodyAnimator.SetTrigger(PlayerInstance.PainAnimationTriggerPropertyName);
         }
     }
 }

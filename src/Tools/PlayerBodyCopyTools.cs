@@ -7,10 +7,12 @@ using UnityEngine;
 
 namespace PlayerBodySystem
 {
+    /// <summary>
+    /// Helper script to help with copying the player body system to another humanoid rig
+    /// </summary>
     public class PlayerBodyCopyTools : MonoBehaviour
     {
         [Header("Component to copy the player body system to a new rig.")]
-        [Header("Use context menu (cogwheel in the top right corner of the component).")]
         public Animator OldPlayerBodyAnimator;
         public Animator NewPlayerBodyAnimator;
 
@@ -26,14 +28,19 @@ namespace PlayerBodySystem
         public Transform HeadAIEntity;
         public Transform CenterAIEntitiy;
 
+        /// <summary>
+        /// Move animation controller to new rig and set it up to always animate, amongst other settings.
+        /// </summary>
         [ContextMenu("Setup new animator")]
         public void SetupNewAnimator()
         {
             if (NewPlayerBodyAnimator != null && OldPlayerBodyAnimator != null)
             {
+                Vector3 pos = NewPlayerBodyAnimator.transform.position;
                 NewPlayerBodyAnimator.runtimeAnimatorController = OldPlayerBodyAnimator.runtimeAnimatorController;
                 NewPlayerBodyAnimator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
                 NewPlayerBodyAnimator.applyRootMotion = false;
+                NewPlayerBodyAnimator.transform.position = pos;
             }
             else if (OldPlayerBodyAnimator == null)
             {
@@ -44,7 +51,9 @@ namespace PlayerBodySystem
                 Debug.LogError("Could not setup new animator, missing NewPlayerBodyAnimator reference!");
             }
         }
-
+        /// <summary>
+        /// Alignes the tracking head position with the rig head position so that movement is centered around the eyes, aka the headset.
+        /// </summary>
         [ContextMenu("Adjust Head IK Position")]
         public void AdjustHeadIKPosition()
         {
@@ -59,11 +68,11 @@ namespace PlayerBodySystem
                 }
                 else if (NewPlayerBodyAnimator.avatar == null)
                 {
-                    Debug.LogError("Could not move colliders, Animator is missing Avatar!");
+                    Debug.LogError("Could not move head, Animator is missing Avatar!");
                 }
                 else if (NewPlayerBodyAnimator.avatar != null && !NewPlayerBodyAnimator.avatar.isHuman)
                 {
-                    Debug.LogError("Could not move colliders, Player body not imported as humanoid rig!");
+                    Debug.LogError("Could not move head, Player body not imported as humanoid rig!");
                 }
             }
             else if (HeadTarget == null)
@@ -76,6 +85,9 @@ namespace PlayerBodySystem
             }
         }
 
+        /// <summary>
+        /// This system needs a lot of components in very specific places. this method makes sure they get there.
+        /// </summary>
         [ContextMenu("Copy PlayerBody components to new rig")]
         public void CopyPlayerBodyComponents()
         {
@@ -160,6 +172,9 @@ namespace PlayerBodySystem
             }
         }
 
+        /// <summary>
+        /// Finally copy all the hitboxes and stuff.
+        /// </summary>
         [ContextMenu("Move colliders and hitboxes to new rig")]
         public void MoveCollidersContextMenu()
         {
@@ -237,6 +252,43 @@ namespace PlayerBodySystem
             transform.localRotation = Quaternion.identity;
         }
 
+        /// <summary>
+        /// More helper stuff.
+        /// </summary>
+        [ContextMenu("MirrorIKFromLeftToRight")]
+        public void MirrorIKLeftRight()
+        {
+            PlayerBodyHandController controller = NewPlayerBodyAnimator.GetComponentInParent<PlayerBodyHandController>();
+            Transform root = controller.transform;
+
+            for (int i = 0; i < controller.HandConfigs[0].HandIKTargets.Length; i++)
+            {
+                Transform original = controller.HandConfigs[0].HandIKTargets[i];
+                Transform target = controller.HandConfigs[1].HandIKTargets[i];
+
+                ReflectTransform(original, target, root);
+            }
+        }
+
+        /// <summary>
+        /// Even more helper stuff. just mirrored!
+        /// </summary>
+        [ContextMenu("MirrorIKFromRightToLeft")]
+        public void MirrorIKRightLeft()
+        {
+            PlayerBodyHandController controller = NewPlayerBodyAnimator.GetComponentInParent<PlayerBodyHandController>();
+            Transform root = controller.transform;
+
+            for (int i = 0; i < controller.HandConfigs[1].HandIKTargets.Length; i++)
+            {
+                Transform original = controller.HandConfigs[1].HandIKTargets[i];
+                Transform target = controller.HandConfigs[0].HandIKTargets[i];
+
+                ReflectTransform(original, target, root);
+            }
+        }
+
+        // Methods that handle copying of components which is surprisingly not trivial!
         public static T CopyComponentToGameObject<T>(T original, GameObject destination) where T : Component
         {
             destination.SetActive(false);
@@ -275,6 +327,22 @@ namespace PlayerBodySystem
                 finfo.SetValue(target, finfo.GetValue(reference));
             }
             return target as T;
+        }
+
+        private void ReflectTransform(Transform original, Transform toReflect, Transform center)
+        {
+            toReflect.position = ReflectPosition(original.position, center);
+            toReflect.rotation = ReflectRotation(original.rotation, center);
+        }
+
+        private Vector3 ReflectPosition(Vector3 position, Transform center)
+        {
+            return Vector3.Reflect(position - center.position, center.right) + center.position;
+        }
+
+        private Quaternion ReflectRotation(Quaternion source, Transform center)
+        {
+            return Quaternion.LookRotation(Vector3.Reflect(source * Vector3.forward, center.right), Vector3.Reflect(source * Vector3.up, center.right));
         }
     }
 }

@@ -4,6 +4,9 @@ using UnityEngine;
 
 namespace PlayerBodySystem 
 {
+    /// <summary>
+    /// Primary leg animation controller script
+    /// </summary>
     public class PlayerBodyLegsController : MonoBehaviour 
     {
         [Header("This component controls the leg movement animation.")]

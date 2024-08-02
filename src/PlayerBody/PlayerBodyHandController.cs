@@ -5,15 +5,17 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using FistVR;
-using Valve.VR;
 using RootMotion.FinalIK;
 using H3MP;
 using H3MP.Scripts;
-using UnityEngine.Serialization;
 using System.Linq;
+using OpenScripts2;
 
 namespace PlayerBodySystem
 {
+    /// <summary>
+    /// Controls hand animations and tracking
+    /// </summary>
     public class PlayerBodyHandController : MonoBehaviour
     {
         //[Tooltip("This GameObject has the H3MP player body script on it.")]
@@ -30,9 +32,10 @@ namespace PlayerBodySystem
         [Tooltip("Left Hand (Element 0), then right hand (Element 1).\nIf you have more than two hands, lucky you, if you have less, I'm sorry!\nHowever, this is sadly not supported!")]
         public HandConfig[] HandConfigs;
 
+        public bool InEditorDebuggingEnabled => OpenScripts2_BasePlugin.IsInEditor;
+
         [Header("In-Editor Debugging Settings")]
         [Header("Make sure to turn off before building your playerbody for in game use!)")]
-        public bool InEditorDebuggingEnabled;
         [Header("Left Hand Debugging")]
         [Tooltip("Simulate left hand held item state:\n0 = no item in hands, \n1 = weapon grip, \n2 = magazine grip, \n3 = handguard grip, \n4 = bolt handle grip, \n5 = pistol slide grip, \n6 = bullet grip, \n7 = grenade grip, \n8 = pistol two-handed grip, \n9 = top cover grip.")]
         [Range(0,9)]
@@ -249,6 +252,12 @@ namespace PlayerBodySystem
             else PlayerBodyAnimator.SetBool(config.TriggerPressedBoolTransitionName, false);
         }
 
+        /// <summary>
+        /// In Editor hand tester
+        /// </summary>
+        /// <param name="config">current hand config to test</param>
+        /// <param name="handIndex">current grabbed item index to test</param>
+
         private void DebuggingHandsAnimationControl(HandConfig config, int handIndex)
         {
             int grabbedObjectIndex = handIndex == 0 ? LeftHandDebuggingInteractableIndex : RightHandDebuggingInteractableIndex;
@@ -317,6 +326,10 @@ namespace PlayerBodySystem
             return config.TwoHandHolding;
         }
 
+        /// <summary>
+        /// Calculate distance between both hands
+        /// </summary>
+        /// <returns>Distance between hands as float</returns>
         private float DistanceBetweenBothHands() => Vector3.Distance(GM.CurrentMovementManager.LeftHand.position, GM.CurrentMovementManager.RightHand.position);
     }
 }
