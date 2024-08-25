@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace PlayerBodySystem
 {
-    [BepInPlugin("h3vr.cityrobo.H3VRPlayerBodySystem", "H3VR PlayerBody System", "1.0.0")]
+    [BepInPlugin("h3vr.cityrobo.H3VRPlayerBodySystem", "H3VR PlayerBody System", "1.1.1")]
     public class H3VRPlayerBodySystem_BepInEx : BaseUnityPlugin
     {
         [HideInInspector]

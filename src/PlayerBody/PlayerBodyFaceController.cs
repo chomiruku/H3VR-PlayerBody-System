@@ -33,8 +33,6 @@ namespace PlayerBodySystem
 
             StartCoroutine(WaitForBlink());
 
-            FVRPlayerBody currentPlayerBody = GM.CurrentPlayerBody;
-            //FVRMovementManager movementManager = GM.CurrentMovementManager;
             if (Mod.managerObject == null) // H3MP not connected
             {
                 PlayerInstance = this;
@@ -69,7 +67,7 @@ namespace PlayerBodySystem
         [HarmonyPatch(typeof(FVRPlayerBody), nameof(FVRPlayerBody.RegisterPlayerHit))]
         public static void FVRPlayerBodyRegisterPlayerHitPatch()
         {
-            PlayerInstance.PlayerBodyAnimator.SetTrigger(PlayerInstance.PainAnimationTriggerPropertyName);
+            PlayerInstance?.PlayerBodyAnimator.SetTrigger(PlayerInstance.PainAnimationTriggerPropertyName);
         }
     }
 }
