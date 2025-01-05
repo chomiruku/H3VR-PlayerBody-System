@@ -35,7 +35,7 @@ namespace PlayerBodySystem
         public bool InEditorDebuggingEnabled => OpenScripts2_BasePlugin.IsInEditor;
 
         [Header("In-Editor Debugging Settings")]
-        [Header("Make sure to turn off before building your playerbody for in game use!)")]
+        //[Header("Make sure to turn off before building your playerbody for in game use!)")]
         [Header("Left Hand Debugging")]
         [Tooltip("Simulate left hand held item state:\n0 = no item in hands, \n1 = weapon grip, \n2 = magazine grip, \n3 = handguard grip, \n4 = bolt handle grip, \n5 = pistol slide grip, \n6 = bullet grip, \n7 = grenade grip, \n8 = pistol two-handed grip, \n9 = top cover grip.")]
         [Range(0,9)]
@@ -73,6 +73,12 @@ namespace PlayerBodySystem
             [HideInInspector]
             public IKSolverVR.Arm ConnectedIKArm;
             [HideInInspector]
+            public Transform IKParent;
+            [HideInInspector]
+            public Vector3 OrigIKParentPos;
+            [HideInInspector]
+            public Quaternion OrigIKParentRot;
+            [HideInInspector]
             public bool IsThisTheRightHand => Controller.IsThisTheRightHand;
         }
 
@@ -87,7 +93,7 @@ namespace PlayerBodySystem
 
         public void Awake()
         {
-            if (HandConfigs.Length != 2) Debug.LogError(this + ": Either you have less than two hands, or more. If you have less, I'm sorry, if you have more, lucky you! In any case, this won't work with PlayerBodies. Sorry!");
+            if (HandConfigs.Length != 2) Debug.LogError(this + ": Either you have less than two hands, or more. If you have less, I'm sorry, if you have more, lucky you! In any case, this won't work with PlayerBodies. Sorry! (HandConfigs.Length != 2");
             else 
             {
                 // Subscribe to H3MP PlayerBodyInit event
@@ -96,6 +102,9 @@ namespace PlayerBodySystem
                 {
                     HandConfigs[i].ConnectedIKArm = i == 0 ? VRIKInstance.solver.leftArm : VRIKInstance.solver.rightArm;
                     HandConfigs[i].OtherHandConfig = HandConfigs[1 - i];
+                    HandConfigs[i].IKParent = HandConfigs[i].HandIKTargets[0].parent;
+                    HandConfigs[i].OrigIKParentPos = HandConfigs[i].IKParent.localPosition;
+                    HandConfigs[i].OrigIKParentRot = HandConfigs[i].IKParent.localRotation;
                 }
             }
         }
@@ -160,7 +169,9 @@ namespace PlayerBodySystem
             {
                 foreach (var config in HandConfigs)
                 {
-                    CheckIfItemInHand(config);
+                    //CheckIfItemInHand(config);
+
+                    UpdateIKTargetAndAnimate(config);
                 }
             }
             else if (InEditorDebuggingEnabled)
@@ -175,7 +186,6 @@ namespace PlayerBodySystem
         /// <summary>
         /// New finger tracking code using humanoid rig animation properties and blend trees
         /// </summary>
-
         private void UpdateFingerTracking(HandConfig config)
         {
             HandInput input = config.Controller.Input;
@@ -196,37 +206,6 @@ namespace PlayerBodySystem
         }
 
         /// <summary>
-        /// Check if there's and object in hand and activate index finger tracking if not or continue with animation procedure
-        /// </summary>
-        private void CheckIfItemInHand(HandConfig config)
-        {
-            if (config.CurrentInteractable != null)
-            {
-                //config.FingerTracking.ItemBeingGrabbed = true;
-
-                UpdateIKTargetAndAnimate(config);
-            }
-            else if (config.OtherHand.CurrentInteractable != null && config.CurrentInteractable == null && DoubleHandMasturbating(config))
-            {
-                //config.FingerTracking.ItemBeingGrabbed = true;
-
-                UpdateIKTargetAndAnimate(config);
-            }
-            else
-            {
-                foreach (var parameterName in config.AnimatorBoolTransitionNames)
-                {
-                    PlayerBodyAnimator.SetBool(parameterName, false);
-                }
-                config.ConnectedIKArm.target = config.HandIKTargets[0];
-
-                //config.FingerTracking.ItemBeingGrabbed = false;
-
-                UpdateFingerTracking(config);
-            }
-        }
-
-        /// <summary>
         /// Set correct IK Target for grabbed object type and update animation property
         /// </summary>
         private void UpdateIKTargetAndAnimate(HandConfig config)
@@ -239,13 +218,47 @@ namespace PlayerBodySystem
             }
             if (grabbedObjectIndex != -1)
             {
+                // Grabbing something or double handing
                 PlayerBodyAnimator.SetBool(config.AnimatorBoolTransitionNames[grabbedObjectIndex], true);
                 config.ConnectedIKArm.target = config.HandIKTargets[grabbedObjectIndex + 1];
+
+                if (grabbedObjectIndex != 7 /*&& grabbedObjectIndex != 2*/)
+                {
+                    Transform targetTransform = config.CurrentInteractable.PoseOverride ?? config.CurrentInteractable.transform;
+                    Vector3 offsetPos = config.OrigIKParentPos;
+                    Quaternion offsetRot = config.OrigIKParentRot;
+
+                    if (!config.IKParent.position.Approximately(targetTransform.TransformPoint(offsetPos))) config.IKParent.position = targetTransform.TransformPoint(offsetPos);
+                    if (!config.IKParent.rotation.Approximately(targetTransform.TransformRotation(offsetRot))) config.IKParent.rotation = targetTransform.TransformRotation(offsetRot);
+                }
+                //Handguard or foregrip
+                //else if (grabbedObjectIndex == 2)
+                //{
+                //    Transform targetTransform = config.CurrentInteractable.PoseOverride ?? config.CurrentInteractable.transform;
+                //    Vector3 offsetPos = config.OrigIKParentPos;
+                //    Quaternion offsetRot = config.OrigIKParentRot;
+
+                //    offsetPos.z += targetTransform.InverseTransformPoint(config.IKParent.parent.position).z;
+
+                //    if (!config.IKParent.position.Approximately(targetTransform.TransformPoint(offsetPos))) config.IKParent.position = targetTransform.TransformPoint(offsetPos);
+                //    if (!config.IKParent.rotation.Approximately(targetTransform.TransformRotation(offsetRot))) config.IKParent.rotation = targetTransform.TransformRotation(offsetRot);
+                //}
+                // Double Hand Grab
+                else if (grabbedObjectIndex == 7)
+                {
+                    Transform targetTransform = config.OtherHand.CurrentInteractable.PoseOverride ?? config.OtherHand.CurrentInteractable.transform;
+                    if (!config.IKParent.position.Approximately(targetTransform.TransformPoint(config.OrigIKParentPos))) config.IKParent.position = targetTransform.TransformPoint(config.OrigIKParentPos);
+                    if (!config.IKParent.rotation.Approximately(targetTransform.TransformRotation(config.OrigIKParentRot))) config.IKParent.rotation = targetTransform.TransformRotation(config.OrigIKParentRot);
+                }
             }
             else
             {
-                PlayerBodyAnimator.SetBool(config.AnimatorBoolTransitionNames[0], true);
-                config.ConnectedIKArm.target = config.HandIKTargets[1];
+                // not grabbing something
+                config.ConnectedIKArm.target = config.HandIKTargets[0];
+                UpdateFingerTracking(config);
+
+                if (!config.IKParent.localPosition.Approximately(config.OrigIKParentPos)) config.IKParent.localPosition = config.OrigIKParentPos;
+                if (!config.IKParent.localRotation.Approximately(config.OrigIKParentRot)) config.IKParent.localRotation = config.OrigIKParentRot;
             }
 
             if (grabbedObjectIndex == 0) PlayerBodyAnimator.SetBool(config.TriggerPressedBoolTransitionName, CheckTriggerPressed(config));
@@ -280,27 +293,30 @@ namespace PlayerBodySystem
         private int GetGrabbedObjectIndex(HandConfig config)
         {
             int grabbedObjectIndex = -1;
-            Type currentInteractableType = config.CurrentInteractable.GetType();
-            // Grabbing gun
-            if (typeof(FVRFireArm).IsAssignableFrom(currentInteractableType)) grabbedObjectIndex = 0;
-            // Grabbung mag
-            else if (typeof(FVRFireArmMagazine) == currentInteractableType) grabbedObjectIndex = 1;
-            // Grabbing foregrip
-            else if (typeof(FVRAlternateGrip).IsAssignableFrom(currentInteractableType)) grabbedObjectIndex = 2;
-            // Grabbing bolt handle
-            else if (typeof(ClosedBoltHandle) == currentInteractableType || typeof(ClosedBolt) == currentInteractableType
-                 || typeof(BoltActionRifle_Handle) == currentInteractableType || typeof(OpenBoltChargingHandle) == currentInteractableType
-                 || typeof(OpenBoltReceiverBolt) == currentInteractableType || typeof(TubeFedShotgunBolt) == currentInteractableType) grabbedObjectIndex = 3;
-            // Grabbing handgun slide
-            else if (typeof(HandgunSlide) == currentInteractableType) grabbedObjectIndex = 4;
-            // Grabbing round
-            else if (typeof(FVRFireArmRound) == currentInteractableType) grabbedObjectIndex = 5;
-            // Grabbing Grenade
-            else if (typeof(PinnedGrenade) == currentInteractableType || typeof(FVRCappedGrenade) == currentInteractableType) grabbedObjectIndex = 6;
+            if (config.CurrentInteractable != null)
+            {
+                Type currentInteractableType = config.CurrentInteractable.GetType();
+                // Grabbing gun
+                if (typeof(FVRFireArm).IsAssignableFrom(currentInteractableType)) grabbedObjectIndex = 0;
+                // Grabbung mag
+                else if (typeof(FVRFireArmMagazine) == currentInteractableType) grabbedObjectIndex = 1;
+                // Grabbing foregrip
+                else if (typeof(FVRAlternateGrip).IsAssignableFrom(currentInteractableType)) grabbedObjectIndex = 2;
+                // Grabbing bolt handle
+                else if (typeof(ClosedBoltHandle) == currentInteractableType || typeof(ClosedBolt) == currentInteractableType
+                     || typeof(BoltActionRifle_Handle) == currentInteractableType || typeof(OpenBoltChargingHandle) == currentInteractableType
+                     || typeof(OpenBoltReceiverBolt) == currentInteractableType || typeof(TubeFedShotgunBolt) == currentInteractableType) grabbedObjectIndex = 3;
+                // Grabbing handgun slide
+                else if (typeof(HandgunSlide) == currentInteractableType) grabbedObjectIndex = 4;
+                // Grabbing round
+                else if (typeof(FVRFireArmRound) == currentInteractableType) grabbedObjectIndex = 5;
+                // Grabbing Grenade
+                else if (typeof(PinnedGrenade) == currentInteractableType || typeof(FVRCappedGrenade) == currentInteractableType) grabbedObjectIndex = 6;
+                // Grabbing top cover
+                else if (typeof(FVRFireArmTopCover) == currentInteractableType) grabbedObjectIndex = 8;
+            }
             // Grabbing pistol with two hands
-            else if (DoubleHandMasturbating(config) == true && config.CurrentInteractable == null) grabbedObjectIndex = 7;
-            // Grabbing top cover
-            else if (typeof(FVRFireArmTopCover) == currentInteractableType) grabbedObjectIndex = 8;
+            else if (DoubleHandMasturbating(config) == true && config.CurrentInteractable == null && config.OtherHand.CurrentInteractable != null) grabbedObjectIndex = 7;
             return grabbedObjectIndex;
         }
 
@@ -315,7 +331,7 @@ namespace PlayerBodySystem
         /// </summary>
         private bool DoubleHandMasturbating(HandConfig config)
         {
-            if (DistanceBetweenBothHands() <= 0.15f && config.CurrentInteractable == null)
+            if (DistanceBetweenBothHands() <= 0.15f)
             {
                 config.TwoHandHolding = true;
             }

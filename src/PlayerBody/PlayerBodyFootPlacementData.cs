@@ -282,11 +282,14 @@ namespace PlayerBodySystem
             return mFootPlantedRot;
         }
 
+        public void Awake()
+        {
+            _playerBodyAnimator = GetComponent<Animator>();
+        }
+
         /*******************************/
         public void Start()
         {
-            _playerBodyAnimator = GetComponent<Animator>();
-
             if (_playerBodyAnimator == null)
             {
                 return;

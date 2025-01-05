@@ -41,7 +41,7 @@ namespace PlayerBodySystem
             PlayerBodyRoot.rotation = Quaternion.LookRotation(headForward, Vector3.up);
 
             // Take over controller and headset tracking if H3MP couldn't be found.
-            if (!OpenScripts2_BasePlugin.IsInEditor && H3VRPlayerBodySystem_BepInEx.H3MPLoaded)
+            if (!OpenScripts2_BasePlugin.IsInEditor && !H3VRPlayerBodySystem_BepInEx.H3MPLoaded)
             {
                 HeadsetTracker.position = GM.CurrentPlayerBody.Head.position;
                 HeadsetTracker.rotation = GM.CurrentPlayerBody.Head.rotation;

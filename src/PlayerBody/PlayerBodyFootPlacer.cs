@@ -1123,11 +1123,15 @@ namespace PlayerBodySystem
             }
         }
 
+        
+        public void Awake()
+        {
+            _playerBodyAnimator = GetComponent<Animator>();
+        }
+
         /***********/
         public void Start()
         {
-            _playerBodyAnimator = GetComponent<Animator>();
-
             bool lLeftFootSet = false;
             bool lRightFootSet = false;
             bool lLeftHandSet = false;

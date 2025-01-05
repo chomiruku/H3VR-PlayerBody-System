@@ -1,4 +1,6 @@
-﻿using UnityEditor;
+﻿using System;
+using System.Reflection;
+using UnityEditor;
 using UnityEngine;
 
 namespace PlayerBodySystem
@@ -24,8 +26,9 @@ namespace PlayerBodySystem
             }
             else
             {
-                if (GUILayout.Button("Setup new animator"))
+                if (GUILayout.Button("Mirror Position and Rotation"))
                 {
+                    Undo.RecordObject(t.transform, "Mirrored position and rotation from other transform.");
                     t.Mirror();
                 }
             }
