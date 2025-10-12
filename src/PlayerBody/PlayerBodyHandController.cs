@@ -37,14 +37,14 @@ namespace PlayerBodySystem
         [Header("In-Editor Debugging Settings")]
         //[Header("Make sure to turn off before building your playerbody for in game use!)")]
         [Header("Left Hand Debugging")]
-        [Tooltip("Simulate left hand held item state:\n0 = no item in hands, \n1 = weapon grip, \n2 = magazine grip, \n3 = handguard grip, \n4 = bolt handle grip, \n5 = pistol slide grip, \n6 = bullet grip, \n7 = grenade grip, \n8 = pistol two-handed grip, \n9 = top cover grip.")]
-        [Range(0,9)]
+        [Tooltip("Simulate left hand held item state:\n0 = no item in hands, \n1 = weapon grip, \n2 = magazine grip, \n3 = handguard grip, \n4 = closed bolt handle grip, \n5 = pistol slide grip, \n6 = bullet grip, \n7 = grenade grip, \n8 = pistol two-handed grip, \n9 = top cover grip, \n10 = closed bolt grip, \n11 = bolt action rifle handle grip, \n12 = open bolt charging handle grip, \n13 = open bolt receiver bolt grip, \n14 = tube fed shotgun bolt grip.")]
+        [Range(0,14)]
         public int LeftHandDebuggingInteractableIndex = 0;
         [Tooltip("Simulate trigger pressed while holding weapon.")]
         public bool LeftHandDebbuggingTriggerPressed = false;
         [Header("Right Hand Debugging")]
-        [Tooltip("Simulate right hand held item state:\n0 = no item in hands, \n1 = weapon grip, \n2 = magazine grip, \n3 = handguard grip, \n4 = bolt handle grip, \n5 = pistol slide grip, \n6 = bullet grip, \n7 = grenade grip, \n8 = pistol two-handed grip, \n9 = top cover grip.")]
-        [Range(0, 9)]
+        [Tooltip("Simulate right hand held item state:\n0 = no item in hands, \n1 = weapon grip, \n2 = magazine grip, \n3 = handguard grip, \n4 = closed bolt handle grip, \n5 = pistol slide grip, \n6 = bullet grip, \n7 = grenade grip, \n8 = pistol two-handed grip, \n9 = top cover grip, \n10 = closed bolt grip, \n11 = bolt action rifle handle grip, \n12 = open bolt charging handle grip, \n13 = open bolt receiver bolt grip, \n14 = tube fed shotgun bolt grip.")]
+        [Range(0, 14)]
         public int RightHandDebuggingInteractableIndex = 0;
         [Tooltip("Simulate trigger pressed while holding weapon.")]
         public bool RightHandDebbuggingTriggerPressed = false;
@@ -52,9 +52,9 @@ namespace PlayerBodySystem
         [Serializable]
         public class HandConfig
         {
-            [Tooltip("Hand IK tracking positions: \n0 = no item in hands, \n1 = weapon grip, \n2 = magazine grip, \n3 = handguard grip, \n4 = bolt handle grip, \n5 = pistol slide grip, \n6 = bullet grip, \n7 = grenade grip, \n8 = pistol two-handed grip, \n9 = top cover grip.")]
+            [Tooltip("Hand IK tracking positions: \n0 = no item in hands, \n1 = weapon grip, \n2 = magazine grip, \n3 = handguard grip, \n4 = closed bolt handle grip, \n5 = pistol slide grip, \n6 = bullet grip, \n7 = grenade grip, \n8 = pistol two-handed grip, \n9 = top cover grip, \n10 = closed bolt grip, \n11 = bolt action rifle handle grip, \n12 = open bolt charging handle grip, \n13 = open bolt receiver bolt grip, \n14 = tube fed shotgun bolt grip.")]
             public Transform[] HandIKTargets;
-            [Tooltip("Names of the transition bool that trigger the grab dependent finger animations: \n0 = weapon grip, \n1 = magazine grip, \n2 = handguard grip, \n3 = bolt handle grip, \n4 = pistol slide grip, \n5 = bullet grip, \n6 = grenade grip, \n7 = offhand two-handed pistol grip, \n8 = top cover grip.")]
+            [Tooltip("Names of the transition bool that trigger the grab dependent finger animations: \n0 = weapon grip, \n1 = magazine grip, \n2 = handguard grip, \n3 = closed bolt handle grip, \n4 = pistol slide grip, \n5 = bullet grip, \n6 = grenade grip, \n7 = offhand two-handed pistol grip, \n8 = top cover grip, \n9 = closed bolt grip, \n10 = bolt action rifle handle grip, \n11 = open bolt charging handle grip, \n12 = open bolt receiver bolt grip, \n13 = tube fed shotgun bolt grip.")]
             public string[] AnimatorBoolTransitionNames;
             [Tooltip("Name of the transition bool that triggers when pressing the trigger while holding a gun.")]
             public string TriggerPressedBoolTransitionName;
@@ -303,9 +303,17 @@ namespace PlayerBodySystem
                 // Grabbing foregrip
                 else if (typeof(FVRAlternateGrip).IsAssignableFrom(currentInteractableType)) grabbedObjectIndex = 2;
                 // Grabbing bolt handle
-                else if (typeof(ClosedBoltHandle) == currentInteractableType || typeof(ClosedBolt) == currentInteractableType
-                     || typeof(BoltActionRifle_Handle) == currentInteractableType || typeof(OpenBoltChargingHandle) == currentInteractableType
-                     || typeof(OpenBoltReceiverBolt) == currentInteractableType || typeof(TubeFedShotgunBolt) == currentInteractableType) grabbedObjectIndex = 3;
+                else if (typeof(ClosedBoltHandle) == currentInteractableType) grabbedObjectIndex = 3;
+                // Grabbing closed bolt
+                else if (typeof(ClosedBolt) == currentInteractableType) grabbedObjectIndex = 9;
+                // Grabbing bolt action rifle handle
+                else if (typeof(BoltActionRifle_Handle) == currentInteractableType) grabbedObjectIndex = 10;
+                // Grabbing open bolt charging handle
+                else if (typeof(OpenBoltChargingHandle) == currentInteractableType) grabbedObjectIndex = 11;
+                // Grabbing open bolt receiver bolt
+                else if (typeof(OpenBoltReceiverBolt) == currentInteractableType) grabbedObjectIndex = 12;
+                // Grabbing tube fed shotgun bolt
+                else if (typeof(TubeFedShotgunBolt) == currentInteractableType) grabbedObjectIndex = 13;
                 // Grabbing handgun slide
                 else if (typeof(HandgunSlide) == currentInteractableType) grabbedObjectIndex = 4;
                 // Grabbing round
