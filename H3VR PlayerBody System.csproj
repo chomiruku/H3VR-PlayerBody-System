@@ -37,17 +37,17 @@
     <Reference Include="0Harmony, Version=2.7.0.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>packages\HarmonyX.2.7.0\lib\net35\0Harmony.dll</HintPath>
     </Reference>
-    <Reference Include="Assembly-CSharp, Version=1.2.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>packages\H3VR.GameLibs.0.111.5\lib\net35\Assembly-CSharp.dll</HintPath>
+    <Reference Include="Assembly-CSharp, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>packages\H3VR.GameLibs.0.119.4\lib\net35\Assembly-CSharp.dll</HintPath>
     </Reference>
     <Reference Include="Assembly-CSharp-firstpass, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>packages\H3VR.GameLibs.0.111.5\lib\net35\Assembly-CSharp-firstpass.dll</HintPath>
+      <HintPath>packages\H3VR.GameLibs.0.119.4\lib\net35\Assembly-CSharp-firstpass.dll</HintPath>
     </Reference>
     <Reference Include="BepInEx, Version=5.4.17.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>packages\BepInEx.BaseLib.5.4.17\lib\net35\BepInEx.dll</HintPath>
     </Reference>
     <Reference Include="H3MP">
-      <HintPath>..\..\..\AppData\Roaming\r2modmanPlus-local\H3VR\profiles\H3MP\BepInEx\plugins\VIP-H3MP\H3MP.dll</HintPath>
+      <HintPath>dep\H3MP.dll</HintPath>
     </Reference>
     <Reference Include="Mono.Cecil, Version=0.10.4.0, Culture=neutral, PublicKeyToken=50cebf1cceb9d05e, processorArchitecture=MSIL">
       <HintPath>packages\Mono.Cecil.0.10.4\lib\net35\Mono.Cecil.dll</HintPath>
@@ -68,7 +68,7 @@
       <HintPath>packages\MonoMod.Utils.21.12.13.1\lib\net35\MonoMod.Utils.dll</HintPath>
     </Reference>
     <Reference Include="OpenScripts2">
-      <HintPath>..\OpenScripts2\OpenScripts2\OpenScripts2.dll</HintPath>
+      <HintPath>dep\OpenScripts2.dll</HintPath>
     </Reference>
     <Reference Include="SemanticVersioning, Version=2.0.0.0, Culture=neutral, PublicKeyToken=a89bb7dc6f7a145c, processorArchitecture=MSIL">
       <HintPath>packages\SemanticVersioning.2.0.0\lib\net35\SemanticVersioning.dll</HintPath>
@@ -80,16 +80,16 @@
     <Reference Include="System.Data" />
     <Reference Include="System.Xml" />
     <Reference Include="UnityEditor">
-      <HintPath>..\..\..\..\..\Program Files\Unity\Hub\Editor\5.6.3p4\Editor\Data\Managed\UnityEditor.dll</HintPath>
+      <HintPath>dep\UnityEditor.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>packages\UnityEngine.5.6.1\lib\net35\UnityEngine.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.UI, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>packages\H3VR.GameLibs.0.111.5\lib\net35\UnityEngine.UI.dll</HintPath>
+      <HintPath>packages\H3VR.GameLibs.0.119.4\lib\net35\UnityEngine.UI.dll</HintPath>
     </Reference>
     <Reference Include="Valve.Newtonsoft.Json, Version=9.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>packages\H3VR.GameLibs.0.111.5\lib\net35\Valve.Newtonsoft.Json.dll</HintPath>
+      <HintPath>packages\H3VR.GameLibs.0.119.4\lib\net35\Valve.Newtonsoft.Json.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>
@@ -108,6 +108,7 @@
     <Compile Include="src\Tools\SimpleTransformFollower.cs" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="App.config" />
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup />
