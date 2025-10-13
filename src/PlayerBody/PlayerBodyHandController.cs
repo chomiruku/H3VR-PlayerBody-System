@@ -37,14 +37,14 @@ namespace PlayerBodySystem
         [Header("In-Editor Debugging Settings")]
         //[Header("Make sure to turn off before building your playerbody for in game use!)")]
         [Header("Left Hand Debugging")]
-        [Tooltip("Simulate left hand held item state:\n0 = no item in hands, \n1 = weapon grip, \n2 = magazine grip, \n3 = handguard grip, \n4 = closed bolt handle grip, \n5 = pistol slide grip, \n6 = bullet grip, \n7 = grenade grip, \n8 = pistol two-handed grip, \n9 = top cover grip, \n10 = closed bolt grip, \n11 = bolt action rifle handle grip, \n12 = open bolt charging handle grip, \n13 = open bolt receiver bolt grip, \n14 = tube fed shotgun bolt grip.")]
-        [Range(0,14)]
+        [Tooltip("Simulate left hand held item state for in-editor testing.\nSelect index 0-48 to test different grip types.\nSee GetGrabbedObjectIndex() for the complete list of interactable types.")]
+        [Range(0,48)]
         public int LeftHandDebuggingInteractableIndex = 0;
         [Tooltip("Simulate trigger pressed while holding weapon.")]
         public bool LeftHandDebbuggingTriggerPressed = false;
         [Header("Right Hand Debugging")]
-        [Tooltip("Simulate right hand held item state:\n0 = no item in hands, \n1 = weapon grip, \n2 = magazine grip, \n3 = handguard grip, \n4 = closed bolt handle grip, \n5 = pistol slide grip, \n6 = bullet grip, \n7 = grenade grip, \n8 = pistol two-handed grip, \n9 = top cover grip, \n10 = closed bolt grip, \n11 = bolt action rifle handle grip, \n12 = open bolt charging handle grip, \n13 = open bolt receiver bolt grip, \n14 = tube fed shotgun bolt grip.")]
-        [Range(0, 14)]
+        [Tooltip("Simulate right hand held item state for in-editor testing.\nSelect index 0-48 to test different grip types.\nSee GetGrabbedObjectIndex() for the complete list of interactable types.")]
+        [Range(0, 48)]
         public int RightHandDebuggingInteractableIndex = 0;
         [Tooltip("Simulate trigger pressed while holding weapon.")]
         public bool RightHandDebbuggingTriggerPressed = false;
@@ -52,9 +52,9 @@ namespace PlayerBodySystem
         [Serializable]
         public class HandConfig
         {
-            [Tooltip("Hand IK tracking positions: \n0 = no item in hands, \n1 = weapon grip, \n2 = magazine grip, \n3 = handguard grip, \n4 = closed bolt handle grip, \n5 = pistol slide grip, \n6 = bullet grip, \n7 = grenade grip, \n8 = pistol two-handed grip, \n9 = top cover grip, \n10 = closed bolt grip, \n11 = bolt action rifle handle grip, \n12 = open bolt charging handle grip, \n13 = open bolt receiver bolt grip, \n14 = tube fed shotgun bolt grip.")]
+            [Tooltip("Hand IK tracking positions for different interactable types.\nArray indices 0-48 correspond to different grip types:\n0 = empty hands, 1-6 = basic grips (weapon, magazine, foregrip, etc.),\n7 = two-handed grip, 8-47 = specialized weapon parts and mechanisms.\nSee GetGrabbedObjectIndex() for the complete mapping.")]
             public Transform[] HandIKTargets;
-            [Tooltip("Names of the transition bool that trigger the grab dependent finger animations: \n0 = weapon grip, \n1 = magazine grip, \n2 = handguard grip, \n3 = closed bolt handle grip, \n4 = pistol slide grip, \n5 = bullet grip, \n6 = grenade grip, \n7 = offhand two-handed pistol grip, \n8 = top cover grip, \n9 = closed bolt grip, \n10 = bolt action rifle handle grip, \n11 = open bolt charging handle grip, \n12 = open bolt receiver bolt grip, \n13 = tube fed shotgun bolt grip.")]
+            [Tooltip("Animator bool names for grab-dependent finger animations.\nArray indices 0-47 correspond to different grip types:\n0-6 = basic grips (weapon, magazine, foregrip, etc.),\n7 = two-handed grip, 8-47 = specialized weapon parts.\nSee GetGrabbedObjectIndex() for the complete mapping.")]
             public string[] AnimatorBoolTransitionNames;
             [Tooltip("Name of the transition bool that triggers when pressing the trigger while holding a gun.")]
             public string TriggerPressedBoolTransitionName;
@@ -318,10 +318,78 @@ namespace PlayerBodySystem
                 else if (typeof(HandgunSlide) == currentInteractableType) grabbedObjectIndex = 4;
                 // Grabbing round
                 else if (typeof(FVRFireArmRound) == currentInteractableType) grabbedObjectIndex = 5;
-                // Grabbing Grenade
-                else if (typeof(PinnedGrenade) == currentInteractableType || typeof(FVRCappedGrenade) == currentInteractableType) grabbedObjectIndex = 6;
+                // Grabbing pinned grenade
+                else if (typeof(PinnedGrenade) == currentInteractableType) grabbedObjectIndex = 6;
                 // Grabbing top cover
                 else if (typeof(FVRFireArmTopCover) == currentInteractableType) grabbedObjectIndex = 8;
+                // Grabbing open bolt rotating charging handle
+                else if (typeof(OpenBoltRotatingChargingHandle) == currentInteractableType) grabbedObjectIndex = 14;
+                // Grabbing revolver cylinder
+                else if (typeof(RevolverCylinder) == currentInteractableType) grabbedObjectIndex = 15;
+                // Grabbing revolver ejector
+                else if (typeof(RevolverEjector) == currentInteractableType) grabbedObjectIndex = 16;
+                // Grabbing shotgun foregrip
+                else if (typeof(FVRShotgunForegrip) == currentInteractableType) grabbedObjectIndex = 17;
+                // Grabbing clip (not magazine)
+                else if (typeof(FVRFireArmClip) == currentInteractableType) grabbedObjectIndex = 18;
+                // Grabbing open bolt ripcord
+                else if (typeof(OpenBoltRipcord) == currentInteractableType) grabbedObjectIndex = 19;
+                // Grabbing open bolt dust cover
+                else if (typeof(OpenBoltDustCover) == currentInteractableType) grabbedObjectIndex = 20;
+                // Grabbing lever action tube action
+                else if (typeof(LeverActionTubeACtion) == currentInteractableType) grabbedObjectIndex = 21;
+                // Grabbing break action manual ejector
+                else if (typeof(BreakActionManualEjector) == currentInteractableType) grabbedObjectIndex = 22;
+                // Grabbing single action ejector rod
+                else if (typeof(SingleActionEjectorRod) == currentInteractableType) grabbedObjectIndex = 23;
+                // Grabbing handgun mag release trigger
+                else if (typeof(HandgunMagReleaseTrigger) == currentInteractableType) grabbedObjectIndex = 24;
+                // Grabbing firearm belt grab trigger
+                else if (typeof(FVRFireArmBeltGrabTrigger) == currentInteractableType) grabbedObjectIndex = 25;
+                // Grabbing attachable tube fed fore
+                else if (typeof(AttachableTubeFedFore) == currentInteractableType) grabbedObjectIndex = 26;
+                // Grabbing attachable tube fed bolt
+                else if (typeof(AttachableTubeFedBolt) == currentInteractableType) grabbedObjectIndex = 27;
+                // Grabbing flintlock pseudo ramrod
+                else if (typeof(FlintlockPseudoRamRod) == currentInteractableType) grabbedObjectIndex = 28;
+                // Grabbing G11 charging handle
+                else if (typeof(G11ChargingHandle) == currentInteractableType) grabbedObjectIndex = 29;
+                // Grabbing folding stock X axis
+                else if (typeof(FVRFoldingStockXAxis) == currentInteractableType) grabbedObjectIndex = 30;
+                // Grabbing folding stock Y axis
+                else if (typeof(FVRFoldingStockYAxis) == currentInteractableType) grabbedObjectIndex = 31;
+                // Grabbing chainsaw handle
+                else if (typeof(ChainsawHandle) == currentInteractableType) grabbedObjectIndex = 32;
+                // Grabbing LAPD2019 bolt handle
+                else if (typeof(LAPD2019BoltHandle) == currentInteractableType) grabbedObjectIndex = 33;
+                // Grabbing LAPD2019 cylinder
+                else if (typeof(LAPD2019Cylinder) == currentInteractableType) grabbedObjectIndex = 34;
+                // Grabbing LAPD2019 ejector
+                else if (typeof(LAPD2019Ejector) == currentInteractableType) grabbedObjectIndex = 35;
+                // Grabbing Mac11 stock
+                else if (typeof(Mac11_Stock) == currentInteractableType) grabbedObjectIndex = 36;
+                // Grabbing Mac11 stock butt
+                else if (typeof(Mac11_StockButt) == currentInteractableType) grabbedObjectIndex = 37;
+                // Grabbing shotgun moveable stock
+                else if (typeof(ShotgunMoveableStock) == currentInteractableType) grabbedObjectIndex = 38;
+                // Grabbing derringer barrel cycler
+                else if (typeof(DerringerBarrelCycler) == currentInteractableType) grabbedObjectIndex = 39;
+                // Grabbing flintlock flint holder
+                else if (typeof(FlintlockFlintHolder) == currentInteractableType) grabbedObjectIndex = 40;
+                // Grabbing flintlock flint screw
+                else if (typeof(FlintlockFlintScrew) == currentInteractableType) grabbedObjectIndex = 41;
+                // Grabbing flintlock powder horn cap
+                else if (typeof(FlintlockPowderHornCap) == currentInteractableType) grabbedObjectIndex = 42;
+                // Grabbing firearm grip
+                else if (typeof(FVRFireArmGrip) == currentInteractableType) grabbedObjectIndex = 43;
+                // Grabbing top cover advanced
+                else if (typeof(FVRFireArmTopCoverAdvanced) == currentInteractableType) grabbedObjectIndex = 44;
+                // Grabbing M203 fore
+                else if (typeof(M203_Fore) == currentInteractableType) grabbedObjectIndex = 45;
+                // Grabbing airgun barrel
+                else if (typeof(AirgunBarrel) == currentInteractableType) grabbedObjectIndex = 46;
+                // Grabbing capped grenade
+                else if (typeof(FVRCappedGrenade) == currentInteractableType) grabbedObjectIndex = 47;
             }
             // Grabbing pistol with two hands
             else if (DoubleHandMasturbating(config) == true && config.CurrentInteractable == null && config.OtherHand.CurrentInteractable != null) grabbedObjectIndex = 7;
