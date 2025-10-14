@@ -80,6 +80,12 @@ namespace PlayerBodySystem
             public Quaternion OrigIKParentRot;
             [HideInInspector]
             public bool IsThisTheRightHand => Controller.IsThisTheRightHand;
+            [HideInInspector]
+            public bool IsLockedToHandguardPosition = false;
+            [HideInInspector]
+            public FVRInteractiveObject LockedForegripReference = null;
+            [HideInInspector]
+            public Transform LockedForegripTransform = null;
         }
 
         private readonly string[] FingerNames =
@@ -224,7 +230,44 @@ namespace PlayerBodySystem
 
                 if (grabbedObjectIndex != 7 /*&& grabbedObjectIndex != 2*/)
                 {
-                    Transform targetTransform = config.CurrentInteractable.PoseOverride ?? config.CurrentInteractable.transform;
+                    // Use locked foregrip transform if handguard position is locked, otherwise use current interactable
+                    Transform targetTransform;
+                    if (config.IsLockedToHandguardPosition && config.LockedForegripTransform != null)
+                    {
+                        targetTransform = config.LockedForegripTransform;
+                    }
+                    else if (grabbedObjectIndex == 2 && config.CurrentInteractable is FVRPhysicalObject physObj && physObj.IsAltHeld)
+                    {
+                        // Holding gun through foregrip - use the foregrip's transform
+                        if (physObj.AltGrip != null)
+                        {
+                            targetTransform = physObj.AltGrip.PoseOverride ?? physObj.AltGrip.transform;
+                            Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Using AltGrip transform for IK: {targetTransform.name}");
+                        }
+                        else
+                        {
+                            // AltGrip is null, need to find the foregrip
+                            // Try to find FVRAlternateGrip component on the gun or its children
+                            FVRAlternateGrip[] foregrips = physObj.GetComponentsInChildren<FVRAlternateGrip>();
+                            if (foregrips != null && foregrips.Length > 0)
+                            {
+                                // Use the first foregrip found (most guns only have one)
+                                targetTransform = foregrips[0].PoseOverride ?? foregrips[0].transform;
+                                Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Found foregrip via GetComponentsInChildren: {targetTransform.name}");
+                            }
+                            else
+                            {
+                                // No foregrip found, fall back to gun transform
+                                targetTransform = config.CurrentInteractable.PoseOverride ?? config.CurrentInteractable.transform;
+                                Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] No foregrip found, using gun transform: {targetTransform.name}");
+                            }
+                        }
+                    }
+                    else
+                    {
+                        targetTransform = config.CurrentInteractable.PoseOverride ?? config.CurrentInteractable.transform;
+                    }
+
                     Vector3 offsetPos = config.OrigIKParentPos;
                     Quaternion offsetRot = config.OrigIKParentRot;
 
@@ -285,15 +328,84 @@ namespace PlayerBodySystem
         private int GetGrabbedObjectIndex(HandConfig config)
         {
             int grabbedObjectIndex = -1;
+
+            // Check if we should unlock the handguard position lock
+            if (config.IsLockedToHandguardPosition)
+            {
+                // Check if still holding the foregrip
+                bool stillHoldingForegrip = config.CurrentInteractable != null &&
+                                           config.CurrentInteractable == config.LockedForegripReference;
+
+                // Check if the gun itself got transferred to this hand (happens when other hand releases)
+                bool holdingForegripsParentGun = false;
+                if (config.LockedForegripReference != null && config.LockedForegripReference is FVRAlternateGrip lockedGrip)
+                {
+                    holdingForegripsParentGun = config.CurrentInteractable != null &&
+                                               config.CurrentInteractable == lockedGrip.PrimaryObject;
+                }
+
+                if (stillHoldingForegrip || holdingForegripsParentGun)
+                {
+                    // Still holding the foregrip OR the gun transferred to this hand - maintain handguard position
+                    return 2;
+                }
+                else
+                {
+                    // User released - unlock
+                    config.IsLockedToHandguardPosition = false;
+                    config.LockedForegripReference = null;
+                    config.LockedForegripTransform = null;
+                }
+            }
+
             if (config.CurrentInteractable != null)
             {
                 Type currentInteractableType = config.CurrentInteractable.GetType();
+
                 // Grabbing gun
-                if (typeof(FVRFireArm).IsAssignableFrom(currentInteractableType)) grabbedObjectIndex = 0;
+                if (typeof(FVRFireArm).IsAssignableFrom(currentInteractableType))
+                {
+                    // Check if this gun is being held through an alternate grip (foregrip)
+                    FVRPhysicalObject physObj = config.CurrentInteractable as FVRPhysicalObject;
+                    Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Gun detected. AltGrip: {physObj?.AltGrip?.name}, IsAltHeld: {physObj?.IsAltHeld}");
+
+                    if (physObj != null && physObj.IsAltHeld)
+                    {
+                        // Gun is being held by the foregrip, use handguard position
+                        Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Using handguard position for gun held through foregrip");
+                        grabbedObjectIndex = 2;
+                    }
+                    else
+                    {
+                        // Gun is being held normally by the trigger grip
+                        grabbedObjectIndex = 0;
+                    }
+                }
                 // Grabbung mag
                 else if (typeof(FVRFireArmMagazine) == currentInteractableType) grabbedObjectIndex = 1;
                 // Grabbing foregrip
-                else if (typeof(FVRAlternateGrip).IsAssignableFrom(currentInteractableType)) grabbedObjectIndex = 2;
+                else if (typeof(FVRAlternateGrip).IsAssignableFrom(currentInteractableType))
+                {
+                    grabbedObjectIndex = 2;
+
+                    // Check if other hand is holding the gun (parent of this foregrip)
+                    FVRAlternateGrip altGrip = config.CurrentInteractable as FVRAlternateGrip;
+                    if (altGrip != null && altGrip.PrimaryObject != null)
+                    {
+                        // Check if other hand is holding the parent gun
+                        bool otherHandHoldingGun = config.OtherHand.CurrentInteractable != null &&
+                                                   config.OtherHand.CurrentInteractable == altGrip.PrimaryObject;
+
+                        if (otherHandHoldingGun)
+                        {
+                            // Lock this hand to handguard position until user releases the foregrip
+                            config.IsLockedToHandguardPosition = true;
+                            config.LockedForegripReference = config.CurrentInteractable;
+                            // Store the foregrip's transform (PoseOverride or the interactable's transform)
+                            config.LockedForegripTransform = config.CurrentInteractable.PoseOverride ?? config.CurrentInteractable.transform;
+                        }
+                    }
+                }
                 // Grabbing bolt handle
                 else if (typeof(ClosedBoltHandle) == currentInteractableType) grabbedObjectIndex = 3;
                 /*// Grabbing closed bolt
@@ -384,7 +496,29 @@ namespace PlayerBodySystem
                 else if (typeof(FVRCappedGrenade) == currentInteractableType) grabbedObjectIndex = 47;*/
             }
             // Grabbing pistol with two hands
-            else if (DoubleHandMasturbating(config) == true && config.CurrentInteractable == null && config.OtherHand.CurrentInteractable != null) grabbedObjectIndex = 7;
+            // Don't activate double-hand mode if:
+            // - Either hand is locked to handguard position
+            // - The other hand is holding a gun through its foregrip (IsAltHeld)
+            else if (DoubleHandMasturbating(config) == true &&
+                     config.CurrentInteractable == null &&
+                     config.OtherHand.CurrentInteractable != null &&
+                     !config.IsLockedToHandguardPosition &&
+                     !config.OtherHandConfig.IsLockedToHandguardPosition)
+            {
+                // Check if other hand is holding a gun through foregrip
+                bool otherHandUsingForegrip = false;
+                if (config.OtherHand.CurrentInteractable is FVRPhysicalObject otherPhysObj &&
+                    typeof(FVRFireArm).IsAssignableFrom(config.OtherHand.CurrentInteractable.GetType()) &&
+                    otherPhysObj.IsAltHeld)
+                {
+                    otherHandUsingForegrip = true;
+                }
+
+                if (!otherHandUsingForegrip)
+                {
+                    grabbedObjectIndex = 7;
+                }
+            }
             return grabbedObjectIndex;
         }
 
