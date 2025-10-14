@@ -102,7 +102,7 @@ namespace PlayerBodySystem
                 {
                     HandConfigs[i].ConnectedIKArm = i == 0 ? VRIKInstance.solver.leftArm : VRIKInstance.solver.rightArm;
                     HandConfigs[i].OtherHandConfig = HandConfigs[1 - i];
-                    HandConfigs[i].IKParent = HandConfigs[i].HandIKTargets[0].parent;
+                    HandConfigs[i].IKParent = HandConfigs[i].HandIKTargets[0].parent.parent.parent;
                     HandConfigs[i].OrigIKParentPos = HandConfigs[i].IKParent.localPosition;
                     HandConfigs[i].OrigIKParentRot = HandConfigs[i].IKParent.localRotation;
                 }
@@ -228,27 +228,19 @@ namespace PlayerBodySystem
                     Vector3 offsetPos = config.OrigIKParentPos;
                     Quaternion offsetRot = config.OrigIKParentRot;
 
-                    if (!config.IKParent.position.Approximately(targetTransform.TransformPoint(offsetPos))) config.IKParent.position = targetTransform.TransformPoint(offsetPos);
-                    if (!config.IKParent.rotation.Approximately(targetTransform.TransformRotation(offsetRot))) config.IKParent.rotation = targetTransform.TransformRotation(offsetRot);
+                    if (!config.IKParent.position.Approximately(targetTransform.TransformPoint(offsetPos)))
+                        config.IKParent.position = targetTransform.TransformPoint(offsetPos);
+                    if (!config.IKParent.rotation.Approximately(targetTransform.TransformRotation(offsetRot)))
+                        config.IKParent.rotation = targetTransform.TransformRotation(offsetRot);
                 }
-                //Handguard or foregrip
-                //else if (grabbedObjectIndex == 2)
-                //{
-                //    Transform targetTransform = config.CurrentInteractable.PoseOverride ?? config.CurrentInteractable.transform;
-                //    Vector3 offsetPos = config.OrigIKParentPos;
-                //    Quaternion offsetRot = config.OrigIKParentRot;
-
-                //    offsetPos.z += targetTransform.InverseTransformPoint(config.IKParent.parent.position).z;
-
-                //    if (!config.IKParent.position.Approximately(targetTransform.TransformPoint(offsetPos))) config.IKParent.position = targetTransform.TransformPoint(offsetPos);
-                //    if (!config.IKParent.rotation.Approximately(targetTransform.TransformRotation(offsetRot))) config.IKParent.rotation = targetTransform.TransformRotation(offsetRot);
-                //}
                 // Double Hand Grab
                 else if (grabbedObjectIndex == 7)
                 {
                     Transform targetTransform = config.OtherHand.CurrentInteractable.PoseOverride ?? config.OtherHand.CurrentInteractable.transform;
-                    if (!config.IKParent.position.Approximately(targetTransform.TransformPoint(config.OrigIKParentPos))) config.IKParent.position = targetTransform.TransformPoint(config.OrigIKParentPos);
-                    if (!config.IKParent.rotation.Approximately(targetTransform.TransformRotation(config.OrigIKParentRot))) config.IKParent.rotation = targetTransform.TransformRotation(config.OrigIKParentRot);
+                    if (!config.IKParent.position.Approximately(targetTransform.TransformPoint(config.OrigIKParentPos)))
+                        config.IKParent.position = targetTransform.TransformPoint(config.OrigIKParentPos);
+                    if (!config.IKParent.rotation.Approximately(targetTransform.TransformRotation(config.OrigIKParentRot)))
+                        config.IKParent.rotation = targetTransform.TransformRotation(config.OrigIKParentRot);
                 }
             }
             else
@@ -304,7 +296,7 @@ namespace PlayerBodySystem
                 else if (typeof(FVRAlternateGrip).IsAssignableFrom(currentInteractableType)) grabbedObjectIndex = 2;
                 // Grabbing bolt handle
                 else if (typeof(ClosedBoltHandle) == currentInteractableType) grabbedObjectIndex = 3;
-                // Grabbing closed bolt
+                /*// Grabbing closed bolt
                 else if (typeof(ClosedBolt) == currentInteractableType) grabbedObjectIndex = 9;
                 // Grabbing bolt action rifle handle
                 else if (typeof(BoltActionRifle_Handle) == currentInteractableType) grabbedObjectIndex = 10;
@@ -313,7 +305,7 @@ namespace PlayerBodySystem
                 // Grabbing open bolt receiver bolt
                 else if (typeof(OpenBoltReceiverBolt) == currentInteractableType) grabbedObjectIndex = 12;
                 // Grabbing tube fed shotgun bolt
-                else if (typeof(TubeFedShotgunBolt) == currentInteractableType) grabbedObjectIndex = 13;
+                else if (typeof(TubeFedShotgunBolt) == currentInteractableType) grabbedObjectIndex = 13;*/
                 // Grabbing handgun slide
                 else if (typeof(HandgunSlide) == currentInteractableType) grabbedObjectIndex = 4;
                 // Grabbing round
@@ -322,7 +314,7 @@ namespace PlayerBodySystem
                 else if (typeof(PinnedGrenade) == currentInteractableType) grabbedObjectIndex = 6;
                 // Grabbing top cover
                 else if (typeof(FVRFireArmTopCover) == currentInteractableType) grabbedObjectIndex = 8;
-                // Grabbing open bolt rotating charging handle
+                /*// Grabbing open bolt rotating charging handle
                 else if (typeof(OpenBoltRotatingChargingHandle) == currentInteractableType) grabbedObjectIndex = 14;
                 // Grabbing revolver cylinder
                 else if (typeof(RevolverCylinder) == currentInteractableType) grabbedObjectIndex = 15;
@@ -389,7 +381,7 @@ namespace PlayerBodySystem
                 // Grabbing airgun barrel
                 else if (typeof(AirgunBarrel) == currentInteractableType) grabbedObjectIndex = 46;
                 // Grabbing capped grenade
-                else if (typeof(FVRCappedGrenade) == currentInteractableType) grabbedObjectIndex = 47;
+                else if (typeof(FVRCappedGrenade) == currentInteractableType) grabbedObjectIndex = 47;*/
             }
             // Grabbing pistol with two hands
             else if (DoubleHandMasturbating(config) == true && config.CurrentInteractable == null && config.OtherHand.CurrentInteractable != null) grabbedObjectIndex = 7;
