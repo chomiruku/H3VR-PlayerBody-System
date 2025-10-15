@@ -406,9 +406,17 @@ namespace PlayerBodySystem
                         }
                     }
                 }
+                // Grabbing handgun slide
+                else if (typeof(HandgunSlide) == currentInteractableType) grabbedObjectIndex = 3;
+                // Grabbing round
+                else if (typeof(FVRFireArmRound) == currentInteractableType) grabbedObjectIndex = 4;
+                // Grabbing pinned grenade
+                else if (typeof(PinnedGrenade) == currentInteractableType) grabbedObjectIndex = 5;
+                // Grabbing top cover
+                else if (typeof(FVRFireArmTopCover) == currentInteractableType) grabbedObjectIndex = 6;
                 // Grabbing bolt handle
-                else if (typeof(ClosedBoltHandle) == currentInteractableType) grabbedObjectIndex = 3;
-                /*// Grabbing closed bolt
+                else if (typeof(ClosedBoltHandle) == currentInteractableType) grabbedObjectIndex = 8;
+                // Grabbing closed bolt
                 else if (typeof(ClosedBolt) == currentInteractableType) grabbedObjectIndex = 9;
                 // Grabbing bolt action rifle handle
                 else if (typeof(BoltActionRifle_Handle) == currentInteractableType) grabbedObjectIndex = 10;
@@ -417,15 +425,7 @@ namespace PlayerBodySystem
                 // Grabbing open bolt receiver bolt
                 else if (typeof(OpenBoltReceiverBolt) == currentInteractableType) grabbedObjectIndex = 12;
                 // Grabbing tube fed shotgun bolt
-                else if (typeof(TubeFedShotgunBolt) == currentInteractableType) grabbedObjectIndex = 13;*/
-                // Grabbing handgun slide
-                else if (typeof(HandgunSlide) == currentInteractableType) grabbedObjectIndex = 4;
-                // Grabbing round
-                else if (typeof(FVRFireArmRound) == currentInteractableType) grabbedObjectIndex = 5;
-                // Grabbing pinned grenade
-                else if (typeof(PinnedGrenade) == currentInteractableType) grabbedObjectIndex = 6;
-                // Grabbing top cover
-                else if (typeof(FVRFireArmTopCover) == currentInteractableType) grabbedObjectIndex = 8;
+                else if (typeof(TubeFedShotgunBolt) == currentInteractableType) grabbedObjectIndex = 13;
                 /*// Grabbing open bolt rotating charging handle
                 else if (typeof(OpenBoltRotatingChargingHandle) == currentInteractableType) grabbedObjectIndex = 14;
                 // Grabbing revolver cylinder
