@@ -6,6 +6,8 @@ A complete restructure and rewrite of the existing player body system by JerryAR
 
 **This is a fork of [cityrobo's H3VR PlayerBody System](https://github.com/cityrobo/H3VR-PlayerBody-System)** with additional updates and maintenance.
 
+**Check the [wiki](https://github.com/chomiruku/H3VR-PlayerBody-System/wiki) on how to make your own PlayerBodies**
+
 ## Building from Source
 
 ### Prerequisites
@@ -34,12 +36,3 @@ The following DLLs must be placed in the `dep/` folder before building:
 3. Restore NuGet packages
 4. Build the solution in Release configuration
 5. The compiled DLL will be output to the project root as `H3VRPlayerBodySystem.dll`
-
-## Changelog
-v1.2.0 Fixed weird multiplayer issues. Hands now lock onto PoseOverrides, or if those don't exist, the interaction center.
-
-v1.1.1 Fixed player not taking any damage.
-
-v1.1.0 A bunch of features and fixes.
-
-v1.0.0 Initial release.
