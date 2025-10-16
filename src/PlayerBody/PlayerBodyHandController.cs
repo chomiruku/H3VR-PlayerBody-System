@@ -296,8 +296,10 @@ namespace PlayerBodySystem
                 if (!config.IKParent.localRotation.Approximately(config.OrigIKParentRot)) config.IKParent.localRotation = config.OrigIKParentRot;
             }
 
-            if (grabbedObjectIndex == 0) PlayerBodyAnimator.SetBool(config.TriggerPressedBoolTransitionName, CheckTriggerPressed(config));
-            else PlayerBodyAnimator.SetBool(config.TriggerPressedBoolTransitionName, false);
+            /*if (grabbedObjectIndex == 0) PlayerBodyAnimator.SetBool(config.TriggerPressedBoolTransitionName, CheckTriggerPressed(config));
+            else PlayerBodyAnimator.SetBool(config.TriggerPressedBoolTransitionName, false);*/
+            if (grabbedObjectIndex == 0) PlayerBodyAnimator.SetFloat(config.TriggerPressedBoolTransitionName, CheckTriggerPressed(config) ? 1.0f : 0.0f);
+            else PlayerBodyAnimator.SetFloat(config.TriggerPressedBoolTransitionName, 0.0f);
         }
 
         /// <summary>
@@ -426,7 +428,7 @@ namespace PlayerBodySystem
                 else if (typeof(OpenBoltReceiverBolt) == currentInteractableType) grabbedObjectIndex = 12;
                 // Grabbing tube fed shotgun bolt
                 else if (typeof(TubeFedShotgunBolt) == currentInteractableType) grabbedObjectIndex = 13;
-                /*// Grabbing open bolt rotating charging handle
+                // Grabbing open bolt rotating charging handle
                 else if (typeof(OpenBoltRotatingChargingHandle) == currentInteractableType) grabbedObjectIndex = 14;
                 // Grabbing revolver cylinder
                 else if (typeof(RevolverCylinder) == currentInteractableType) grabbedObjectIndex = 15;
@@ -434,7 +436,7 @@ namespace PlayerBodySystem
                 else if (typeof(RevolverEjector) == currentInteractableType) grabbedObjectIndex = 16;
                 // Grabbing shotgun foregrip
                 else if (typeof(FVRShotgunForegrip) == currentInteractableType) grabbedObjectIndex = 17;
-                // Grabbing clip (not magazine)
+                /*// Grabbing clip (not magazine)
                 else if (typeof(FVRFireArmClip) == currentInteractableType) grabbedObjectIndex = 18;
                 // Grabbing open bolt ripcord
                 else if (typeof(OpenBoltRipcord) == currentInteractableType) grabbedObjectIndex = 19;
