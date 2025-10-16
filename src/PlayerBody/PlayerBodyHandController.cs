@@ -508,13 +508,9 @@ namespace PlayerBodySystem
                      !config.OtherHandConfig.IsLockedToHandguardPosition)
             {
                 // Check if other hand is holding a gun through foregrip
-                bool otherHandUsingForegrip = false;
-                if (config.OtherHand.CurrentInteractable is FVRPhysicalObject otherPhysObj &&
-                    typeof(FVRFireArm).IsAssignableFrom(config.OtherHand.CurrentInteractable.GetType()) &&
-                    otherPhysObj.IsAltHeld)
-                {
-                    otherHandUsingForegrip = true;
-                }
+                bool otherHandUsingForegrip = config.OtherHand.CurrentInteractable is FVRPhysicalObject otherPhysObj &&
+                                              typeof(FVRFireArm).IsAssignableFrom(config.OtherHand.CurrentInteractable.GetType()) &&
+                                              otherPhysObj.IsAltHeld;
 
                 if (!otherHandUsingForegrip)
                 {
