@@ -23,40 +23,50 @@ namespace PlayerBodySystem
         [Header("This component controls how the hands move.")]
         [Header("Many fields have tooltips, just hover over them!")]
         [Header("(On the left side, where the name of the field is.)")]
-        [Tooltip("H3MP Player Body reference used for determining player body state in multiplayer.")]
+        [Tooltip("H3MP Player Body reference for multiplayer support.")]
         public PlayerBody H3MPPlayerBody;
-        [Tooltip("VRIK script, used to swap out hand IK target depending on what type of object is being grabbed.")]
+        [Tooltip("VRIK script for hand IK targeting based on held objects.")]
         public VRIK VRIKInstance;
-        [Tooltip("Animator on the player body rig.")]
+        [Tooltip("Animator controlling the player body rig.")]
         public Animator PlayerBodyAnimator;
-        [Tooltip("Left Hand (Element 0), then right hand (Element 1).\nIf you have more than two hands, lucky you, if you have less, I'm sorry!\nHowever, this is sadly not supported!")]
+        [Tooltip("Hand configurations: Left Hand (Element 0), Right Hand (Element 1). Must have exactly 2 elements.")]
         public HandConfig[] HandConfigs;
 
         public bool InEditorDebuggingEnabled => OpenScripts2_BasePlugin.IsInEditor;
 
+        [Header("Two-Handed Grip Settings")]
+        [Tooltip("JerryAr's Method: Empty hand presses trigger to activate two-handed grip. When disabled, activates automatically when hands are close.")]
+        public bool UseJerryArDoubleHandingMethod = false;
+        [Tooltip("Distance (meters) to activate two-handed mode.")]
+        [Range(0.05f, 0.3f)]
+        public float TwoHandActivationDistance = 0.18f;
+        [Tooltip("Distance (meters) to deactivate two-handed mode. Should be larger than activation distance.")]
+        [Range(0.1f, 0.4f)]
+        public float TwoHandDeactivationDistance = 0.28f;
+
         [Header("In-Editor Debugging Settings")]
         //[Header("Make sure to turn off before building your playerbody for in game use!)")]
         [Header("Left Hand Debugging")]
-        [Tooltip("Simulate left hand held item state for in-editor testing.\nSelect index 0-48 to test different grip types.\nSee GetGrabbedObjectIndex() for the complete list of interactable types.")]
+        [Tooltip("Simulate held item state for testing (0-48). See: https://github.com/chomiruku/H3VR-PlayerBody-System/wiki/Hand-Poses")]
         [Range(0,48)]
         public int LeftHandDebuggingInteractableIndex = 0;
-        [Tooltip("Simulate trigger pressed while holding weapon.")]
+        [Tooltip("Simulate trigger press while holding weapon.")]
         public bool LeftHandDebbuggingTriggerPressed = false;
         [Header("Right Hand Debugging")]
-        [Tooltip("Simulate right hand held item state for in-editor testing.\nSelect index 0-48 to test different grip types.\nSee GetGrabbedObjectIndex() for the complete list of interactable types.")]
+        [Tooltip("Simulate held item state for testing (0-48). See: https://github.com/chomiruku/H3VR-PlayerBody-System/wiki/Hand-Poses")]
         [Range(0, 48)]
         public int RightHandDebuggingInteractableIndex = 0;
-        [Tooltip("Simulate trigger pressed while holding weapon.")]
+        [Tooltip("Simulate trigger press while holding weapon.")]
         public bool RightHandDebbuggingTriggerPressed = false;
 
         [Serializable]
         public class HandConfig
         {
-            [Tooltip("Hand IK tracking positions for different interactable types.\nArray indices 0-48 correspond to different grip types:\n0 = empty hands, 1-6 = basic grips (weapon, magazine, foregrip, etc.),\n7 = two-handed grip, 8-47 = specialized weapon parts and mechanisms.\nSee GetGrabbedObjectIndex() for the complete mapping.")]
+            [Tooltip("Hand IK targets for different grip types (49 elements: 0=empty, 1-48=various grips). See: https://github.com/chomiruku/H3VR-PlayerBody-System/wiki/Hand-Poses")]
             public Transform[] HandIKTargets;
-            [Tooltip("Animator bool names for grab-dependent finger animations.\nArray indices 0-47 correspond to different grip types:\n0-6 = basic grips (weapon, magazine, foregrip, etc.),\n7 = two-handed grip, 8-47 = specialized weapon parts.\nSee GetGrabbedObjectIndex() for the complete mapping.")]
+            [Tooltip("Animator bool names for hand poses (48 elements for indices 1-48). See: https://github.com/chomiruku/H3VR-PlayerBody-System/wiki/Hand-Poses")]
             public string[] AnimatorBoolTransitionNames;
-            [Tooltip("Name of the transition bool that triggers when pressing the trigger while holding a gun.")]
+            [Tooltip("Animator parameter name for trigger press state when holding a gun.")]
             public string TriggerPressedBoolTransitionName;
             //public AngryNoob_FingerTracking_Translated FingerTracking;
 
@@ -64,6 +74,10 @@ namespace PlayerBodySystem
             public HandConfig OtherHandConfig;
             [HideInInspector]
             public bool TwoHandHolding = false;
+            [HideInInspector]
+            public bool JerryArToggleActive = false;
+            [HideInInspector]
+            public bool WasTriggerPressedLastFrame = false;
             [HideInInspector]
             public FVRViveHand Controller;
             [HideInInspector]
@@ -325,6 +339,28 @@ namespace PlayerBodySystem
         }
 
         /// <summary>
+        /// Helper method to apply handguard locking logic for alternate grips
+        /// </summary>
+        private void TryLockToAlternateGrip(HandConfig config, FVRPhysicalObject parentObject)
+        {
+            if (parentObject != null)
+            {
+                // Check if other hand is holding the parent object
+                bool otherHandHoldingParent = config.OtherHand.CurrentInteractable != null &&
+                                              config.OtherHand.CurrentInteractable == parentObject;
+
+                if (otherHandHoldingParent)
+                {
+                    // Lock this hand to grip position until user releases it
+                    config.IsLockedToHandguardPosition = true;
+                    config.LockedForegripReference = config.CurrentInteractable;
+                    // Store the grip's transform (PoseOverride or the interactable's transform)
+                    config.LockedForegripTransform = config.CurrentInteractable.PoseOverride ?? config.CurrentInteractable.transform;
+                }
+            }
+        }
+
+        /// <summary>
         /// Determine the type of object grabbed by the hand
         /// </summary>
         private int GetGrabbedObjectIndex(HandConfig config)
@@ -363,6 +399,7 @@ namespace PlayerBodySystem
             if (config.CurrentInteractable != null)
             {
                 Type currentInteractableType = config.CurrentInteractable.GetType();
+                Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] CurrentInteractable type: {currentInteractableType.Name}");
 
                 // Grabbing gun
                 if (typeof(FVRFireArm).IsAssignableFrom(currentInteractableType))
@@ -385,28 +422,21 @@ namespace PlayerBodySystem
                 }
                 // Grabbung mag
                 else if (typeof(FVRFireArmMagazine) == currentInteractableType) grabbedObjectIndex = 1;
+                // Grabbing tube fed shotgun handle (MUST come before FVRAlternateGrip check since it's a subclass)
+                else if (typeof(TubeFedShotgunHandle).IsAssignableFrom(currentInteractableType))
+                {
+                    Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] MATCHED TubeFedShotgunHandle! Setting index 12");
+                    grabbedObjectIndex = 12;
+                    TubeFedShotgunHandle shotgunHandle = config.CurrentInteractable as TubeFedShotgunHandle;
+                    TryLockToAlternateGrip(config, shotgunHandle?.Shotgun);
+                }
                 // Grabbing foregrip
                 else if (typeof(FVRAlternateGrip).IsAssignableFrom(currentInteractableType))
                 {
+                    Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] MATCHED FVRAlternateGrip! Setting index 2");
                     grabbedObjectIndex = 2;
-
-                    // Check if other hand is holding the gun (parent of this foregrip)
                     FVRAlternateGrip altGrip = config.CurrentInteractable as FVRAlternateGrip;
-                    if (altGrip != null && altGrip.PrimaryObject != null)
-                    {
-                        // Check if other hand is holding the parent gun
-                        bool otherHandHoldingGun = config.OtherHand.CurrentInteractable != null &&
-                                                   config.OtherHand.CurrentInteractable == altGrip.PrimaryObject;
-
-                        if (otherHandHoldingGun)
-                        {
-                            // Lock this hand to handguard position until user releases the foregrip
-                            config.IsLockedToHandguardPosition = true;
-                            config.LockedForegripReference = config.CurrentInteractable;
-                            // Store the foregrip's transform (PoseOverride or the interactable's transform)
-                            config.LockedForegripTransform = config.CurrentInteractable.PoseOverride ?? config.CurrentInteractable.transform;
-                        }
-                    }
+                    TryLockToAlternateGrip(config, altGrip?.PrimaryObject);
                 }
                 // Grabbing handgun slide
                 else if (typeof(HandgunSlide) == currentInteractableType) grabbedObjectIndex = 3;
@@ -424,10 +454,8 @@ namespace PlayerBodySystem
                 else if (typeof(BoltActionRifle_Handle) == currentInteractableType) grabbedObjectIndex = 10;
                 // Grabbing open bolt charging handle
                 else if (typeof(OpenBoltChargingHandle) == currentInteractableType) grabbedObjectIndex = 11;
-                // Grabbing open bolt receiver bolt
-                else if (typeof(OpenBoltReceiverBolt) == currentInteractableType) grabbedObjectIndex = 12;
-                // Grabbing tube fed shotgun bolt
-                else if (typeof(TubeFedShotgunBolt) == currentInteractableType) grabbedObjectIndex = 13;
+                /*// Grabbing open bolt receiver bolt
+                else if (typeof(OpenBoltReceiverBolt) == currentInteractableType) grabbedObjectIndex = 13;
                 // Grabbing open bolt rotating charging handle
                 else if (typeof(OpenBoltRotatingChargingHandle) == currentInteractableType) grabbedObjectIndex = 14;
                 // Grabbing revolver cylinder
@@ -436,6 +464,7 @@ namespace PlayerBodySystem
                 else if (typeof(RevolverEjector) == currentInteractableType) grabbedObjectIndex = 16;
                 // Grabbing shotgun foregrip
                 else if (typeof(FVRShotgunForegrip) == currentInteractableType) grabbedObjectIndex = 17;
+                */
                 /*// Grabbing clip (not magazine)
                 else if (typeof(FVRFireArmClip) == currentInteractableType) grabbedObjectIndex = 18;
                 // Grabbing open bolt ripcord
@@ -531,14 +560,48 @@ namespace PlayerBodySystem
         /// </summary>
         private bool DoubleHandMasturbating(HandConfig config)
         {
-            if (DistanceBetweenBothHands() <= 0.15f)
+            float distance = DistanceBetweenBothHands();
+            bool currentTriggerPressed = CheckTriggerPressed(config);
+
+            if (UseJerryArDoubleHandingMethod)
             {
-                config.TwoHandHolding = true;
+                // JerryAr's Method: Toggle two-handed mode with trigger press on empty hand
+
+                // If hands move too far apart, reset everything
+                if (distance > TwoHandDeactivationDistance)
+                {
+                    config.TwoHandHolding = false;
+                    config.JerryArToggleActive = false;
+                    config.WasTriggerPressedLastFrame = false;
+                }
+                // If hands are close enough
+                else if (distance <= TwoHandActivationDistance)
+                {
+                    // Detect trigger press (rising edge: was not pressed last frame, is pressed now)
+                    if (currentTriggerPressed && !config.WasTriggerPressedLastFrame)
+                    {
+                        // Toggle the JerryAr mode
+                        config.JerryArToggleActive = !config.JerryArToggleActive;
+                        config.TwoHandHolding = config.JerryArToggleActive;
+                    }
+                }
+
+                // Update the trigger state for next frame
+                config.WasTriggerPressedLastFrame = currentTriggerPressed;
             }
-            if (DistanceBetweenBothHands() > 0.22f)
+            else
             {
-                config.TwoHandHolding = false;
+                // Automatic Method: Activate when hands are close together
+                if (distance <= TwoHandActivationDistance)
+                {
+                    config.TwoHandHolding = true;
+                }
+                if (distance > TwoHandDeactivationDistance)
+                {
+                    config.TwoHandHolding = false;
+                }
             }
+
             return config.TwoHandHolding;
         }
 
