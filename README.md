@@ -1,4 +1,6 @@
-[![kofi](https://az743702.vo.msecnd.net/cdn/kofi3.png?v=0)](https://ko-fi.com/cityrobo)
+https://ko-fi.com/cityrobo
+
+![gun](https://github.com/user-attachments/assets/05fd663e-613b-4587-a752-c3377aabc604)
 
 # H3VR PlayerBody System
 
