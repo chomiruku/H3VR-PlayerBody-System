@@ -45,29 +45,43 @@ namespace PlayerBodySystem
         public float TwoHandDeactivationDistance = 0.28f;
 
         [Header("In-Editor Debugging Settings")]
-        //[Header("Make sure to turn off before building your playerbody for in game use!)")]
         [Header("Left Hand Debugging")]
-        [Tooltip("Simulate held item state for testing (0-48). See: https://github.com/chomiruku/H3VR-PlayerBody-System/wiki/Hand-Poses")]
-        [Range(0,48)]
-        public int LeftHandDebuggingInteractableIndex = 0;
-        [Tooltip("Simulate trigger press while holding weapon.")]
-        public bool LeftHandDebbuggingTriggerPressed = false;
+        [Tooltip("Index of grip mapping to test from GripMappings array (0 = first grip).")]
+        public int LeftHandDebuggingGripIndex = 0;
+        [Tooltip("Simulate trigger pull value (0.0 to 1.0) while holding weapon.")]
+        [Range(0.0f, 1.0f)]
+        public float LeftHandDebbuggingTriggerPull = 0.0f;
         [Header("Right Hand Debugging")]
-        [Tooltip("Simulate held item state for testing (0-48). See: https://github.com/chomiruku/H3VR-PlayerBody-System/wiki/Hand-Poses")]
-        [Range(0, 48)]
-        public int RightHandDebuggingInteractableIndex = 0;
-        [Tooltip("Simulate trigger press while holding weapon.")]
-        public bool RightHandDebbuggingTriggerPressed = false;
+        [Tooltip("Index of grip mapping to test from GripMappings array (0 = first grip).")]
+        public int RightHandDebuggingGripIndex = 0;
+        [Tooltip("Simulate trigger pull value (0.0 to 1.0) while holding weapon.")]
+        [Range(0.0f, 1.0f)]
+        public float RightHandDebbuggingTriggerPull = 0.0f;
+
+        /// <summary>
+        /// Maps a grip type identifier to its IK target and animator parameter
+        /// </summary>
+        [Serializable]
+        public class GripMapping
+        {
+            [Tooltip("Unique identifier for this grip type (e.g., 'Pistol', 'Magazine', 'Foregrip')")]
+            public string gripId;
+            [Tooltip("IK target transform for this grip type")]
+            public Transform ikTarget;
+            [Tooltip("Animator bool parameter name for this grip type")]
+            public string animatorParameter;
+        }
 
         [Serializable]
         public class HandConfig
         {
-            [Tooltip("Hand IK targets for different grip types (49 elements: 0=empty, 1-48=various grips). See: https://github.com/chomiruku/H3VR-PlayerBody-System/wiki/Hand-Poses")]
-            public Transform[] HandIKTargets;
-            [Tooltip("Animator bool names for hand poses (48 elements for indices 1-48). See: https://github.com/chomiruku/H3VR-PlayerBody-System/wiki/Hand-Poses")]
-            public string[] AnimatorBoolTransitionNames;
+            [Tooltip("Grip mappings for each grip type.")]
+            public GripMapping[] GripMappings;
             [Tooltip("Animator parameter name for trigger press state when holding a gun.")]
             public string TriggerPressedBoolTransitionName;
+
+            [HideInInspector]
+            public Dictionary<string, GripMapping> gripMappingDict;
             //public AngryNoob_FingerTracking_Translated FingerTracking;
 
             [HideInInspector]
@@ -111,10 +125,30 @@ namespace PlayerBodySystem
             "Pinky"
         };
 
+        /// <summary>
+        /// Standard grip IDs - used for consistency across all player bodies
+        /// </summary>
+        private static class GripIds
+        {
+            public const string Empty = "Empty";
+            public const string Gun = "Gun";
+            public const string Magazine = "Magazine";
+            public const string Handguard = "Handguard";
+            public const string HandgunSlide = "HandgunSlide";
+            public const string Bullet = "Bullet";
+            public const string PinnedGrenade = "PinnedGrenade";
+            public const string TopCover = "TopCover";
+            public const string DoubleHand = "DoubleHand";
+            public const string ClosedBoltHandle = "ClosedBoltHandle";
+            public const string ClosedBolt = "ClosedBolt";
+            public const string BoltActionHandle = "BoltActionHandle";
+            public const string TubeFedShotgunHandle = "TubeFedShotgunHandle";
+        }
+
         public void Awake()
         {
             if (HandConfigs.Length != 2) Debug.LogError(this + ": Either you have less than two hands, or more. If you have less, I'm sorry, if you have more, lucky you! In any case, this won't work with PlayerBodies. Sorry! (HandConfigs.Length != 2");
-            else 
+            else
             {
                 // Subscribe to H3MP PlayerBodyInit event
                 GameManager.OnPlayerBodyInit += OnPlayerBodyInit;
@@ -122,10 +156,45 @@ namespace PlayerBodySystem
                 {
                     HandConfigs[i].ConnectedIKArm = i == 0 ? VRIKInstance.solver.leftArm : VRIKInstance.solver.rightArm;
                     HandConfigs[i].OtherHandConfig = HandConfigs[1 - i];
-                    HandConfigs[i].IKParent = HandConfigs[i].HandIKTargets[0].parent.parent.parent;
-                    HandConfigs[i].OrigIKParentPos = HandConfigs[i].IKParent.localPosition;
-                    HandConfigs[i].OrigIKParentRot = HandConfigs[i].IKParent.localRotation;
+
+                    // Initialize grip mapping dictionary first (needed for getting Empty grip)
+                    InitializeGripMappings(HandConfigs[i]);
+
+                    // Get the Empty grip's IK target to determine IKParent
+                    if (HandConfigs[i].gripMappingDict.TryGetValue(GripIds.Empty, out GripMapping emptyGrip) && emptyGrip.ikTarget != null)
+                    {
+                        HandConfigs[i].IKParent = emptyGrip.ikTarget.parent.parent.parent;
+                        HandConfigs[i].OrigIKParentPos = HandConfigs[i].IKParent.localPosition;
+                        HandConfigs[i].OrigIKParentRot = HandConfigs[i].IKParent.localRotation;
+                    }
+                    else
+                    {
+                        Debug.LogError($"Empty grip mapping not found or has null ikTarget for {(i == 0 ? "left" : "right")} hand!");
+                    }
                 }
+            }
+        }
+
+        /// <summary>
+        /// Initialize grip mappings from GripMappings array
+        /// </summary>
+        private void InitializeGripMappings(HandConfig config)
+        {
+            config.gripMappingDict = new Dictionary<string, GripMapping>();
+
+            if (config.GripMappings != null && config.GripMappings.Length > 0)
+            {
+                foreach (var mapping in config.GripMappings)
+                {
+                    if (!string.IsNullOrEmpty(mapping.gripId))
+                    {
+                        config.gripMappingDict[mapping.gripId] = mapping;
+                    }
+                }
+            }
+            else
+            {
+                Debug.LogError($"GripMappings array is empty for {(config.IsThisTheRightHand ? "right" : "left")} hand! Please configure GripMappings in the inspector.");
             }
         }
 
@@ -230,19 +299,27 @@ namespace PlayerBodySystem
         /// </summary>
         private void UpdateIKTargetAndAnimate(HandConfig config)
         {
-            int grabbedObjectIndex = GetGrabbedObjectIndex(config);
-            for (int i = 0; i < config.AnimatorBoolTransitionNames.Length; i++)
+            string gripId = GetGrabbedObjectGripId(config);
+
+            // Turn off all animator parameters first
+            foreach (var mapping in config.gripMappingDict.Values)
             {
-                string parameterName = config.AnimatorBoolTransitionNames[i];
-                if (i != grabbedObjectIndex) PlayerBodyAnimator.SetBool(parameterName, false);
+                if (!string.IsNullOrEmpty(mapping.animatorParameter))
+                {
+                    PlayerBodyAnimator.SetBool(mapping.animatorParameter, false);
+                }
             }
-            if (grabbedObjectIndex != -1)
+
+            if (gripId != null && config.gripMappingDict.TryGetValue(gripId, out GripMapping currentGrip))
             {
                 // Grabbing something or double handing
-                PlayerBodyAnimator.SetBool(config.AnimatorBoolTransitionNames[grabbedObjectIndex], true);
-                config.ConnectedIKArm.target = config.HandIKTargets[grabbedObjectIndex + 1];
+                if (!string.IsNullOrEmpty(currentGrip.animatorParameter))
+                {
+                    PlayerBodyAnimator.SetBool(currentGrip.animatorParameter, true);
+                }
+                config.ConnectedIKArm.target = currentGrip.ikTarget;
 
-                if (grabbedObjectIndex != 7 /*&& grabbedObjectIndex != 2*/)
+                if (gripId != GripIds.DoubleHand /*&& gripId != GripIds.Foregrip*/)
                 {
                     // Use locked foregrip transform if handguard position is locked, otherwise use current interactable
                     Transform targetTransform;
@@ -250,7 +327,42 @@ namespace PlayerBodySystem
                     {
                         targetTransform = config.LockedForegripTransform;
                     }
-                    else if (grabbedObjectIndex == 2 && config.CurrentInteractable is FVRPhysicalObject physObj && physObj.IsAltHeld)
+                    else if (gripId == GripIds.TubeFedShotgunHandle)
+                    {
+                        // For TubeFedShotgunHandle, check if we're holding the gun through the foregrip
+                        if (config.CurrentInteractable is FVRPhysicalObject shotgunPhysObj && shotgunPhysObj.IsAltHeld)
+                        {
+                            // Holding shotgun through foregrip - find the foregrip's transform
+                            if (shotgunPhysObj.AltGrip != null)
+                            {
+                                targetTransform = shotgunPhysObj.AltGrip.transform;
+                                Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Using TubeFedShotgun AltGrip direct transform for IK: {targetTransform.name}");
+                            }
+                            else
+                            {
+                                // AltGrip is null, need to find the foregrip
+                                FVRAlternateGrip[] foregrips = shotgunPhysObj.GetComponentsInChildren<FVRAlternateGrip>();
+                                if (foregrips != null && foregrips.Length > 0)
+                                {
+                                    targetTransform = foregrips[0].transform;
+                                    Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Found shotgun foregrip via GetComponentsInChildren, using direct transform: {targetTransform.name}");
+                                }
+                                else
+                                {
+                                    // No foregrip found, fall back to gun transform
+                                    targetTransform = config.CurrentInteractable.transform;
+                                    Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] No shotgun foregrip found, using gun direct transform: {targetTransform.name}");
+                                }
+                            }
+                        }
+                        else
+                        {
+                            // Directly holding the TubeFedShotgunHandle component itself
+                            targetTransform = config.CurrentInteractable.transform;
+                            Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Using TubeFedShotgunHandle direct transform for IK: {targetTransform.name}");
+                        }
+                    }
+                    else if (gripId == GripIds.Handguard && config.CurrentInteractable is FVRPhysicalObject physObj && physObj.IsAltHeld)
                     {
                         // Holding gun through foregrip - use the foregrip's transform
                         if (physObj.AltGrip != null)
@@ -291,7 +403,7 @@ namespace PlayerBodySystem
                         config.IKParent.rotation = targetTransform.TransformRotation(offsetRot);
                 }
                 // Double Hand Grab
-                else if (grabbedObjectIndex == 7)
+                else if (gripId == GripIds.DoubleHand)
                 {
                     Transform targetTransform = config.OtherHand.CurrentInteractable.PoseOverride ?? config.OtherHand.CurrentInteractable.transform;
                     if (!config.IKParent.position.Approximately(targetTransform.TransformPoint(config.OrigIKParentPos)))
@@ -302,17 +414,19 @@ namespace PlayerBodySystem
             }
             else
             {
-                // not grabbing something
-                config.ConnectedIKArm.target = config.HandIKTargets[0];
+                // not grabbing something - use empty grip
+                if (config.gripMappingDict.TryGetValue(GripIds.Empty, out GripMapping emptyGrip))
+                {
+                    config.ConnectedIKArm.target = emptyGrip.ikTarget;
+                }
                 UpdateFingerTracking(config);
 
                 if (!config.IKParent.localPosition.Approximately(config.OrigIKParentPos)) config.IKParent.localPosition = config.OrigIKParentPos;
                 if (!config.IKParent.localRotation.Approximately(config.OrigIKParentRot)) config.IKParent.localRotation = config.OrigIKParentRot;
             }
 
-            /*if (grabbedObjectIndex == 0) PlayerBodyAnimator.SetBool(config.TriggerPressedBoolTransitionName, CheckTriggerPressed(config));
-            else PlayerBodyAnimator.SetBool(config.TriggerPressedBoolTransitionName, false);*/
-            if (grabbedObjectIndex == 0) PlayerBodyAnimator.SetFloat(config.TriggerPressedBoolTransitionName, CheckTriggerPressed(config) ? 1.0f : 0.0f);
+            // Handle trigger press animation (only for pistol grip)
+            if (gripId == GripIds.Gun) PlayerBodyAnimator.SetFloat(config.TriggerPressedBoolTransitionName, GetTriggerPullValue(config));
             else PlayerBodyAnimator.SetFloat(config.TriggerPressedBoolTransitionName, 0.0f);
         }
 
@@ -321,21 +435,49 @@ namespace PlayerBodySystem
         /// </summary>
         /// <param name="config">current hand config to test</param>
         /// <param name="handIndex">current grabbed item index to test</param>
-
         private void DebuggingHandsAnimationControl(HandConfig config, int handIndex)
         {
-            int grabbedObjectIndex = handIndex == 0 ? LeftHandDebuggingInteractableIndex : RightHandDebuggingInteractableIndex;
-            for (int i = 0; i < config.AnimatorBoolTransitionNames.Length; i++)
+            int debuggingGripIndex = handIndex == 0 ? LeftHandDebuggingGripIndex : RightHandDebuggingGripIndex;
+
+            // Turn off all animator parameters
+            foreach (var mapping in config.gripMappingDict.Values)
             {
-                string parameterName = config.AnimatorBoolTransitionNames[i];
-                if (i != grabbedObjectIndex - 1) PlayerBodyAnimator.SetBool(parameterName, false);
+                if (!string.IsNullOrEmpty(mapping.animatorParameter))
+                {
+                    PlayerBodyAnimator.SetBool(mapping.animatorParameter, false);
+                }
             }
-            if (grabbedObjectIndex > 0) PlayerBodyAnimator.SetBool(config.AnimatorBoolTransitionNames[grabbedObjectIndex - 1], true);
 
-            if (grabbedObjectIndex == 1) PlayerBodyAnimator.SetBool(config.TriggerPressedBoolTransitionName, handIndex == 0 ? LeftHandDebbuggingTriggerPressed : RightHandDebbuggingTriggerPressed) ;
-            else PlayerBodyAnimator.SetBool(config.TriggerPressedBoolTransitionName, false);
+            // Get the grip mapping at the specified index
+            GripMapping debugGrip = null;
+            if (config.GripMappings != null && debuggingGripIndex >= 0 && debuggingGripIndex < config.GripMappings.Length)
+            {
+                debugGrip = config.GripMappings[debuggingGripIndex];
+            }
 
-            config.ConnectedIKArm.target = config.HandIKTargets[grabbedObjectIndex];
+            // Set the current grip's animator parameter and IK target
+            if (debugGrip != null)
+            {
+                if (!string.IsNullOrEmpty(debugGrip.animatorParameter))
+                {
+                    PlayerBodyAnimator.SetBool(debugGrip.animatorParameter, true);
+                }
+                if (debugGrip.ikTarget != null)
+                {
+                    config.ConnectedIKArm.target = debugGrip.ikTarget;
+                }
+            }
+
+            // Handle trigger pull for pistol grip
+            float triggerPull = handIndex == 0 ? LeftHandDebbuggingTriggerPull : RightHandDebbuggingTriggerPull;
+            if (debugGrip != null && debugGrip.gripId == GripIds.Gun)
+            {
+                PlayerBodyAnimator.SetFloat(config.TriggerPressedBoolTransitionName, triggerPull);
+            }
+            else
+            {
+                PlayerBodyAnimator.SetFloat(config.TriggerPressedBoolTransitionName, 0.0f);
+            }
         }
 
         /// <summary>
@@ -354,18 +496,32 @@ namespace PlayerBodySystem
                     // Lock this hand to grip position until user releases it
                     config.IsLockedToHandguardPosition = true;
                     config.LockedForegripReference = config.CurrentInteractable;
-                    // Store the grip's transform (PoseOverride or the interactable's transform)
-                    config.LockedForegripTransform = config.CurrentInteractable.PoseOverride ?? config.CurrentInteractable.transform;
+
+                    // For shotgun foregrips, use direct transform instead of PoseOverride
+                    if (config.CurrentInteractable is TubeFedShotgunHandle ||
+                        (config.CurrentInteractable is FVRAlternateGrip altGrip &&
+                         altGrip.PrimaryObject != null &&
+                         typeof(TubeFedShotgun).IsAssignableFrom(altGrip.PrimaryObject.GetType())))
+                    {
+                        config.LockedForegripTransform = config.CurrentInteractable.transform;
+                        Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Locking shotgun foregrip with direct transform");
+                    }
+                    else
+                    {
+                        // For regular handguards, use PoseOverride if available
+                        config.LockedForegripTransform = config.CurrentInteractable.PoseOverride ?? config.CurrentInteractable.transform;
+                    }
                 }
             }
         }
 
         /// <summary>
         /// Determine the type of object grabbed by the hand
+        /// Returns the grip ID string, or null if nothing is grabbed
         /// </summary>
-        private int GetGrabbedObjectIndex(HandConfig config)
+        private string GetGrabbedObjectGripId(HandConfig config)
         {
-            int grabbedObjectIndex = -1;
+            string gripId = null;
 
             // Check if we should unlock the handguard position lock
             if (config.IsLockedToHandguardPosition)
@@ -382,19 +538,43 @@ namespace PlayerBodySystem
                                                config.CurrentInteractable == lockedGrip.PrimaryObject;
                 }
 
-                if (stillHoldingForegrip || holdingForegripsParentGun)
+                // Determine which grip ID to return based on the locked foregrip type or parent gun type
+                string lockedGripId = GripIds.Handguard; // Default to handguard
+                if (config.LockedForegripReference is TubeFedShotgunHandle)
                 {
-                    // Still holding the foregrip OR the gun transferred to this hand - maintain handguard position
-                    return 2;
+                    lockedGripId = GripIds.TubeFedShotgunHandle;
+                    Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Locked foregrip is TubeFedShotgunHandle");
+                }
+                else if (config.LockedForegripReference is FVRAlternateGrip lockedAltGrip &&
+                         lockedAltGrip.PrimaryObject != null &&
+                         typeof(TubeFedShotgun).IsAssignableFrom(lockedAltGrip.PrimaryObject.GetType()))
+                {
+                    lockedGripId = GripIds.TubeFedShotgunHandle;
+                    Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Locked foregrip parent is TubeFedShotgun, using TubeFedShotgunHandle pose");
+                }
+
+                if (stillHoldingForegrip)
+                {
+                    // Still holding the foregrip - maintain handguard position
+                    Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Locked to handguard, still holding foregrip");
+                    return lockedGripId;
+                }
+                else if (holdingForegripsParentGun)
+                {
+                    // Gun transferred to this hand - still maintain handguard position
+                    // Keep using handguard pose since we originally grabbed it via the foregrip
+                    Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Locked to handguard, gun transferred but maintaining handguard pose");
+                    return lockedGripId;
                 }
                 else
                 {
                     // User released - unlock
+                    Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Unlocking handguard position");
                     config.IsLockedToHandguardPosition = false;
                     config.LockedForegripReference = null;
                     config.LockedForegripTransform = null;
                 }
-            }
+            } 
 
             if (config.CurrentInteractable != null)
             {
@@ -410,51 +590,52 @@ namespace PlayerBodySystem
 
                     if (physObj != null && physObj.IsAltHeld)
                     {
-                        // Gun is being held by the foregrip, use handguard position
-                        Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Using handguard position for gun held through foregrip");
-                        grabbedObjectIndex = 2;
+                        // Gun is being held by the foregrip
+                        // Check if it's a TubeFedShotgun - use shotgun handle pose instead of generic handguard
+                        if (typeof(TubeFedShotgun).IsAssignableFrom(currentInteractableType))
+                        {
+                            Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] TubeFedShotgun held through foregrip, using TubeFedShotgunHandle pose");
+                            gripId = GripIds.TubeFedShotgunHandle;
+                        }
+                        else
+                        {
+                            Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Gun held through foregrip, using Handguard pose");
+                            gripId = GripIds.Handguard;
+                        }
                     }
                     else
                     {
                         // Gun is being held normally by the trigger grip
-                        grabbedObjectIndex = 0;
+                        gripId = GripIds.Gun;
                     }
                 }
-                // Grabbung mag
-                else if (typeof(FVRFireArmMagazine) == currentInteractableType) grabbedObjectIndex = 1;
+                // Grabbing mag
+                else if (typeof(FVRFireArmMagazine) == currentInteractableType) gripId = GripIds.Magazine;
                 // Grabbing tube fed shotgun handle (MUST come before FVRAlternateGrip check since it's a subclass)
                 else if (typeof(TubeFedShotgunHandle).IsAssignableFrom(currentInteractableType))
                 {
-                    Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] MATCHED TubeFedShotgunHandle! Setting index 12");
-                    grabbedObjectIndex = 12;
+                    Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] MATCHED TubeFedShotgunHandle!");
+                    gripId = GripIds.TubeFedShotgunHandle;
                     TubeFedShotgunHandle shotgunHandle = config.CurrentInteractable as TubeFedShotgunHandle;
                     TryLockToAlternateGrip(config, shotgunHandle?.Shotgun);
                 }
-                // Grabbing foregrip
-                else if (typeof(FVRAlternateGrip).IsAssignableFrom(currentInteractableType))
-                {
-                    Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] MATCHED FVRAlternateGrip! Setting index 2");
-                    grabbedObjectIndex = 2;
-                    FVRAlternateGrip altGrip = config.CurrentInteractable as FVRAlternateGrip;
-                    TryLockToAlternateGrip(config, altGrip?.PrimaryObject);
-                }
                 // Grabbing handgun slide
-                else if (typeof(HandgunSlide) == currentInteractableType) grabbedObjectIndex = 3;
+                else if (typeof(HandgunSlide) == currentInteractableType) gripId = GripIds.HandgunSlide;
                 // Grabbing round
-                else if (typeof(FVRFireArmRound) == currentInteractableType) grabbedObjectIndex = 4;
+                else if (typeof(FVRFireArmRound) == currentInteractableType) gripId = GripIds.Bullet;
                 // Grabbing pinned grenade
-                else if (typeof(PinnedGrenade) == currentInteractableType) grabbedObjectIndex = 5;
+                else if (typeof(PinnedGrenade) == currentInteractableType) gripId = GripIds.PinnedGrenade;
                 // Grabbing top cover
-                else if (typeof(FVRFireArmTopCover) == currentInteractableType) grabbedObjectIndex = 6;
+                else if (typeof(FVRFireArmTopCover) == currentInteractableType) gripId = GripIds.TopCover;
                 // Grabbing bolt handle
-                else if (typeof(ClosedBoltHandle) == currentInteractableType) grabbedObjectIndex = 8;
+                else if (typeof(ClosedBoltHandle) == currentInteractableType) gripId = GripIds.ClosedBoltHandle;
                 // Grabbing closed bolt
-                else if (typeof(ClosedBolt) == currentInteractableType) grabbedObjectIndex = 9;
+                else if (typeof(ClosedBolt) == currentInteractableType) gripId = GripIds.ClosedBolt;
                 // Grabbing bolt action rifle handle
-                else if (typeof(BoltActionRifle_Handle) == currentInteractableType) grabbedObjectIndex = 10;
-                // Grabbing open bolt charging handle
-                else if (typeof(OpenBoltChargingHandle) == currentInteractableType) grabbedObjectIndex = 11;
-                /*// Grabbing open bolt receiver bolt
+                else if (typeof(BoltActionRifle_Handle) == currentInteractableType) gripId = GripIds.BoltActionHandle;
+                /*// Grabbing open bolt charging handle
+                else if (typeof(OpenBoltChargingHandle) == currentInteractableType) grabbedObjectIndex = 12;
+                // Grabbing open bolt receiver bolt
                 else if (typeof(OpenBoltReceiverBolt) == currentInteractableType) grabbedObjectIndex = 13;
                 // Grabbing open bolt rotating charging handle
                 else if (typeof(OpenBoltRotatingChargingHandle) == currentInteractableType) grabbedObjectIndex = 14;
@@ -525,6 +706,26 @@ namespace PlayerBodySystem
                 else if (typeof(AirgunBarrel) == currentInteractableType) grabbedObjectIndex = 46;
                 // Grabbing capped grenade
                 else if (typeof(FVRCappedGrenade) == currentInteractableType) grabbedObjectIndex = 47;*/
+                // Grabbing foregrip
+                else if (typeof(FVRAlternateGrip).IsAssignableFrom(currentInteractableType))
+                {
+                    Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] MATCHED FVRAlternateGrip!");
+                    FVRAlternateGrip altGrip = config.CurrentInteractable as FVRAlternateGrip;
+
+                    // Check if the parent gun is a TubeFedShotgun
+                    if (altGrip?.PrimaryObject != null &&
+                        typeof(TubeFedShotgun).IsAssignableFrom(altGrip.PrimaryObject.GetType()))
+                    {
+                        Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] FVRAlternateGrip parent is TubeFedShotgun, using TubeFedShotgunHandle pose");
+                        gripId = GripIds.TubeFedShotgunHandle;
+                    }
+                    else
+                    {
+                        gripId = GripIds.Handguard;
+                    }
+
+                    TryLockToAlternateGrip(config, altGrip?.PrimaryObject);
+                }
             }
             // Grabbing pistol with two hands
             // Don't activate double-hand mode if:
@@ -543,14 +744,34 @@ namespace PlayerBodySystem
 
                 if (!otherHandUsingForegrip)
                 {
-                    grabbedObjectIndex = 7;
+                    gripId = GripIds.DoubleHand;
                 }
             }
-            return grabbedObjectIndex;
+            return gripId;
         }
 
         /// <summary>
-        ///  Determine whether the trigger is pressed
+        /// Get trigger pull value with ramp applied
+        /// Uses a ramp to avoid false activation from capacitive touch
+        /// Returns 0.0 until threshold is met, then ramps from 0.0 to 1.0
+        /// </summary>
+        private float GetTriggerPullValue(HandConfig config)
+        {
+            float rawTriggerValue = config.Controller.Input.TriggerFloat;
+            const float activationThreshold = 0.7f;  // Threshold before ramping starts
+            const float fullPullValue = 0.95f;       // Value considered full pull
+
+            // Return 0 if below activation threshold
+            if (rawTriggerValue < activationThreshold)
+                return 0.0f;
+
+            // Remap from [activationThreshold, fullPullValue] to [0.0, 1.0]
+            float remapped = (rawTriggerValue - activationThreshold) / (fullPullValue - activationThreshold);
+            return Mathf.Clamp01(remapped);
+        }
+
+        /// <summary>
+        /// Determine whether the trigger is pressed (used for JerryAr double-handing)
         /// </summary>
         private bool CheckTriggerPressed(HandConfig config) => config.Controller.Input.TriggerFloat >= 0.7f;
 

@@ -363,10 +363,10 @@ namespace PlayerBodySystem
             PlayerBodyHandController controller = t.NewPlayerBodyAnimator.GetComponentInParent<PlayerBodyHandController>();
             Transform root = controller.transform;
 
-            for (int i = 0; i < controller.HandConfigs[0].HandIKTargets.Length; i++)
+            for (int i = 0; i < controller.HandConfigs[0].GripMappings.Length; i++)
             {
-                Transform original = controller.HandConfigs[0].HandIKTargets[i];
-                Transform target = controller.HandConfigs[1].HandIKTargets[i];
+                Transform original = controller.HandConfigs[0].GripMappings[i].ikTarget;
+                Transform target = controller.HandConfigs[1].GripMappings[i].ikTarget;
 
                 ReflectTransform(original, target, root);
             }
@@ -381,10 +381,10 @@ namespace PlayerBodySystem
             PlayerBodyHandController controller = t.NewPlayerBodyAnimator.GetComponentInParent<PlayerBodyHandController>();
             Transform root = controller.transform;
 
-            for (int i = 0; i < controller.HandConfigs[1].HandIKTargets.Length; i++)
+            for (int i = 0; i < controller.HandConfigs[1].GripMappings.Length; i++)
             {
-                Transform original = controller.HandConfigs[1].HandIKTargets[i];
-                Transform target = controller.HandConfigs[0].HandIKTargets[i];
+                Transform original = controller.HandConfigs[1].GripMappings[i].ikTarget;
+                Transform target = controller.HandConfigs[0].GripMappings[i].ikTarget;
 
                 ReflectTransform(original, target, root);
             }

@@ -108,10 +108,15 @@
     <Compile Include="src\Tools\SimpleTransformFollower.cs" />
   </ItemGroup>
   <ItemGroup>
+    <!-- Explicitly exclude unused folder from build -->
+    <Compile Remove="unused\**" />
+    <EmbeddedResource Remove="unused\**" />
+    <None Remove="unused\**" />
+  </ItemGroup>
+  <ItemGroup>
     <None Include="App.config" />
     <None Include="packages.config" />
   </ItemGroup>
-  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
     <PostBuildEvent>if $(ConfigurationName) == Release copy "$(TargetPath)" "$(SolutionDir)$(TargetName).dll"</PostBuildEvent>
