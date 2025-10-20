@@ -1,4 +1,6 @@
-https://ko-fi.com/cityrobo
+<a href='https://ko-fi.com/cityrobo' target='_blank'><img height='60' style='border:0px;height:60px;' src='https://cdn.prod.website-files.com/5c14e387dab576fe667689cf/670f5a01229bf8a18f97a3c1_favion.png' border='0' alt='My Wishlist' />cityrobo</a>
+
+<a href='https://throne.com/chomilk' target='_blank'><img height='60' style='border:0px;height:60px;' src='https://thronecdn.com/common/integrations/panels/wishlist_button_small_rainbow.png?version=2' border='0' alt='My Wishlist' />chomilk</a>
 
 ![Pistol1-1](https://github.com/user-attachments/assets/05356a6a-b8e5-4eac-aeb2-26e3ac8dac3a)
 
