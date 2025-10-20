@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace PlayerBodySystem
 {
-    [BepInPlugin("h3vr.chomilk.H3VRPlayerBodySystemFork", "H3VR PlayerBody System Fork", "1.3.0")]
+    [BepInPlugin("h3vr.chomilk.H3VRPlayerBodySystemFork", "H3VR PlayerBody System Fork", "2.0.0")]
     public class H3VRPlayerBodySystem_BepInEx : BaseUnityPlugin
     {
         [HideInInspector]
