@@ -319,97 +319,45 @@ namespace PlayerBodySystem
                 }
                 config.ConnectedIKArm.target = currentGrip.ikTarget;
 
-                if (gripId != GripIds.DoubleHand /*&& gripId != GripIds.Foregrip*/)
+                if (gripId != GripIds.DoubleHand)
                 {
-                    // Use locked foregrip transform if handguard position is locked, otherwise use current interactable
-                    Transform targetTransform;
-                    if (config.IsLockedToHandguardPosition && config.LockedForegripTransform != null)
-                    {
-                        targetTransform = config.LockedForegripTransform;
-                    }
-                    else if (gripId == GripIds.TubeFedShotgunHandle)
-                    {
-                        // For TubeFedShotgunHandle, check if we're holding the gun through the foregrip
-                        if (config.CurrentInteractable is FVRPhysicalObject shotgunPhysObj && shotgunPhysObj.IsAltHeld)
-                        {
-                            // Holding shotgun through foregrip - find the foregrip's transform
-                            if (shotgunPhysObj.AltGrip != null)
-                            {
-                                targetTransform = shotgunPhysObj.AltGrip.transform;
-                                Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Using TubeFedShotgun AltGrip direct transform for IK: {targetTransform.name}");
-                            }
-                            else
-                            {
-                                // AltGrip is null, need to find the foregrip
-                                FVRAlternateGrip[] foregrips = shotgunPhysObj.GetComponentsInChildren<FVRAlternateGrip>();
-                                if (foregrips != null && foregrips.Length > 0)
-                                {
-                                    targetTransform = foregrips[0].transform;
-                                    Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Found shotgun foregrip via GetComponentsInChildren, using direct transform: {targetTransform.name}");
-                                }
-                                else
-                                {
-                                    // No foregrip found, fall back to gun transform
-                                    targetTransform = config.CurrentInteractable.transform;
-                                    Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] No shotgun foregrip found, using gun direct transform: {targetTransform.name}");
-                                }
-                            }
-                        }
-                        else
-                        {
-                            // Directly holding the TubeFedShotgunHandle component itself
-                            targetTransform = config.CurrentInteractable.transform;
-                            Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Using TubeFedShotgunHandle direct transform for IK: {targetTransform.name}");
-                        }
-                    }
-                    else if (gripId == GripIds.Handguard && config.CurrentInteractable is FVRPhysicalObject physObj && physObj.IsAltHeld)
-                    {
-                        // Holding gun through foregrip - use the foregrip's transform
-                        if (physObj.AltGrip != null)
-                        {
-                            targetTransform = physObj.AltGrip.PoseOverride ?? physObj.AltGrip.transform;
-                            Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Using AltGrip transform for IK: {targetTransform.name}");
-                        }
-                        else
-                        {
-                            // AltGrip is null, need to find the foregrip
-                            // Try to find FVRAlternateGrip component on the gun or its children
-                            FVRAlternateGrip[] foregrips = physObj.GetComponentsInChildren<FVRAlternateGrip>();
-                            if (foregrips != null && foregrips.Length > 0)
-                            {
-                                // Use the first foregrip found (most guns only have one)
-                                targetTransform = foregrips[0].PoseOverride ?? foregrips[0].transform;
-                                Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Found foregrip via GetComponentsInChildren: {targetTransform.name}");
-                            }
-                            else
-                            {
-                                // No foregrip found, fall back to gun transform
-                                targetTransform = config.CurrentInteractable.PoseOverride ?? config.CurrentInteractable.transform;
-                                Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] No foregrip found, using gun transform: {targetTransform.name}");
-                            }
-                        }
-                    }
-                    else
-                    {
-                        targetTransform = config.CurrentInteractable.PoseOverride ?? config.CurrentInteractable.transform;
-                    }
+                    // Use new priority-based transform selection
+                    Transform targetTransform = GetTransformForIK(config, gripId);
 
-                    Vector3 offsetPos = config.OrigIKParentPos;
-                    Quaternion offsetRot = config.OrigIKParentRot;
+                    // Apply IK offset to the selected transform
+                    if (targetTransform != null)
+                    {
+                        Vector3 offsetPos = config.OrigIKParentPos;
+                        Quaternion offsetRot = config.OrigIKParentRot;
 
-                    if (!config.IKParent.position.Approximately(targetTransform.TransformPoint(offsetPos)))
-                        config.IKParent.position = targetTransform.TransformPoint(offsetPos);
-                    if (!config.IKParent.rotation.Approximately(targetTransform.TransformRotation(offsetRot)))
-                        config.IKParent.rotation = targetTransform.TransformRotation(offsetRot);
+                        if (!config.IKParent.position.Approximately(targetTransform.TransformPoint(offsetPos)))
+                            config.IKParent.position = targetTransform.TransformPoint(offsetPos);
+                        if (!config.IKParent.rotation.Approximately(targetTransform.TransformRotation(offsetRot)))
+                            config.IKParent.rotation = targetTransform.TransformRotation(offsetRot);
+                    }
                 }
-                // Double Hand Grab
+                // Double Hand Grab - Use simplified priority for other hand's object
                 else if (gripId == GripIds.DoubleHand)
                 {
-                    Transform targetTransform = config.OtherHand.CurrentInteractable.PoseOverride ?? config.OtherHand.CurrentInteractable.transform;
-                    if (!config.IKParent.position.Approximately(targetTransform.TransformPoint(config.OrigIKParentPos)))
-                        config.IKParent.position = targetTransform.TransformPoint(config.OrigIKParentPos);
-                    if (!config.IKParent.rotation.Approximately(targetTransform.TransformRotation(config.OrigIKParentRot)))
-                        config.IKParent.rotation = targetTransform.TransformRotation(config.OrigIKParentRot);
+                    // For double-hand grip, check other hand's object with simplified priority
+                    Transform targetTransform = null;
+                    if (config.OtherHand.CurrentInteractable != null)
+                    {
+                        if (config.OtherHand.CurrentInteractable.PoseOverride_Touch != null)
+                            targetTransform = config.OtherHand.CurrentInteractable.PoseOverride_Touch;
+                        else if (config.OtherHand.CurrentInteractable.PoseOverride != null)
+                            targetTransform = config.OtherHand.CurrentInteractable.PoseOverride;
+                        else
+                            targetTransform = config.OtherHand.CurrentInteractable.transform;
+                    }
+
+                    if (targetTransform != null)
+                    {
+                        if (!config.IKParent.position.Approximately(targetTransform.TransformPoint(config.OrigIKParentPos)))
+                            config.IKParent.position = targetTransform.TransformPoint(config.OrigIKParentPos);
+                        if (!config.IKParent.rotation.Approximately(targetTransform.TransformRotation(config.OrigIKParentRot)))
+                            config.IKParent.rotation = targetTransform.TransformRotation(config.OrigIKParentRot);
+                    }
                 }
             }
             else
@@ -481,6 +429,72 @@ namespace PlayerBodySystem
         }
 
         /// <summary>
+        /// Get the appropriate transform for IK positioning based on priority:
+        /// PoseOverride_Touch > Direct Transform > PoseOverride > AltGrip Transform > Fallback
+        /// </summary>
+        private Transform GetTransformForIK(HandConfig config, string gripId)
+        {
+            if (config.CurrentInteractable == null)
+                return null;
+
+            // Special case: If handguard position is locked, always use locked transform
+            if (config.IsLockedToHandguardPosition && config.LockedForegripTransform != null)
+            {
+                Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Using locked foregrip transform");
+                return config.LockedForegripTransform;
+            }
+
+            // Priority 1: PoseOverride_Touch (highest priority - used by JerryAR's script)
+            if (config.CurrentInteractable.PoseOverride_Touch != null)
+            {
+                Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Using PoseOverride_Touch: {config.CurrentInteractable.PoseOverride_Touch.name}");
+                return config.CurrentInteractable.PoseOverride_Touch;
+            }
+
+            // Priority 2: Direct Transform (for handguards and specific grip types)
+            // This is context-dependent based on grip type
+            if (gripId == GripIds.Handguard || gripId == GripIds.TubeFedShotgunHandle)
+            {
+                // Check if holding gun through foregrip (IsAltHeld)
+                if (config.CurrentInteractable is FVRPhysicalObject physObj && physObj.IsAltHeld && physObj.AltGrip != null)
+                {
+                    Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Using AltGrip direct transform (IsAltHeld): {physObj.AltGrip.transform.name}");
+                    return physObj.AltGrip.transform;
+                }
+                // Check if directly holding foregrip component
+                else if (config.CurrentInteractable is FVRAlternateGrip altGripComponent)
+                {
+                    Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Using direct FVRAlternateGrip transform: {altGripComponent.transform.name}");
+                    return altGripComponent.transform;
+                }
+                // Check if directly holding TubeFedShotgunHandle
+                else if (config.CurrentInteractable is TubeFedShotgunHandle shotgunHandle)
+                {
+                    Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Using direct TubeFedShotgunHandle transform: {shotgunHandle.transform.name}");
+                    return shotgunHandle.transform;
+                }
+            }
+
+            // Priority 3: PoseOverride (standard H3VR pose override)
+            if (config.CurrentInteractable.PoseOverride != null)
+            {
+                Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Using PoseOverride: {config.CurrentInteractable.PoseOverride.name}");
+                return config.CurrentInteractable.PoseOverride;
+            }
+
+            // Priority 4: AltGrip transform (if available but not already used)
+            if (config.CurrentInteractable is FVRPhysicalObject physObjAlt && physObjAlt.AltGrip != null)
+            {
+                Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Using AltGrip transform as fallback: {physObjAlt.AltGrip.transform.name}");
+                return physObjAlt.AltGrip.transform;
+            }
+
+            // Priority 5: Fallback - Direct interactable transform
+            Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Using fallback interactable transform: {config.CurrentInteractable.transform.name}");
+            return config.CurrentInteractable.transform;
+        }
+
+        /// <summary>
         /// Helper method to apply handguard locking logic for alternate grips
         /// </summary>
         private void TryLockToAlternateGrip(HandConfig config, FVRPhysicalObject parentObject)
@@ -497,20 +511,10 @@ namespace PlayerBodySystem
                     config.IsLockedToHandguardPosition = true;
                     config.LockedForegripReference = config.CurrentInteractable;
 
-                    // For shotgun foregrips, use direct transform instead of PoseOverride
-                    if (config.CurrentInteractable is TubeFedShotgunHandle ||
-                        (config.CurrentInteractable is FVRAlternateGrip altGrip &&
-                         altGrip.PrimaryObject != null &&
-                         typeof(TubeFedShotgun).IsAssignableFrom(altGrip.PrimaryObject.GetType())))
-                    {
-                        config.LockedForegripTransform = config.CurrentInteractable.transform;
-                        Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Locking shotgun foregrip with direct transform");
-                    }
-                    else
-                    {
-                        // For regular handguards, use PoseOverride if available
-                        config.LockedForegripTransform = config.CurrentInteractable.PoseOverride ?? config.CurrentInteractable.transform;
-                    }
+                    // For all alternate grips (including shotguns and regular handguards), use direct transform (center position)
+                    // This should provide more consistent positioning
+                    config.LockedForegripTransform = config.CurrentInteractable.transform;
+                    Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Locking foregrip with direct transform (center position)");
                 }
             }
         }
@@ -590,7 +594,7 @@ namespace PlayerBodySystem
 
                     if (physObj != null && physObj.IsAltHeld)
                     {
-                        // Gun is being held by the foregrip
+                        // THIS hand is holding gun through foregrip (IsAltHeld means this hand grabbed via foregrip)
                         // Check if it's a TubeFedShotgun - use shotgun handle pose instead of generic handguard
                         if (typeof(TubeFedShotgun).IsAssignableFrom(currentInteractableType))
                         {
@@ -605,7 +609,7 @@ namespace PlayerBodySystem
                     }
                     else
                     {
-                        // Gun is being held normally by the trigger grip
+                        // Gun is being held normally by the trigger grip - use Gun pose
                         gripId = GripIds.Gun;
                     }
                 }
@@ -751,22 +755,48 @@ namespace PlayerBodySystem
         }
 
         /// <summary>
-        /// Get trigger pull value with ramp applied
-        /// Uses a ramp to avoid false activation from capacitive touch
-        /// Returns 0.0 until threshold is met, then ramps from 0.0 to 1.0
+        /// Get trigger pull value with three states: discipline, resting, pulling
+        /// Returns 0.0-0.7 for resting (finger on trigger but not pulling)
+        /// Returns 0.7-1.0 for actual trigger pull
+        /// Uses hybrid detection: capacitive touch OR finger curl position for universal controller support
         /// </summary>
         private float GetTriggerPullValue(HandConfig config)
         {
             float rawTriggerValue = config.Controller.Input.TriggerFloat;
-            const float activationThreshold = 0.7f;  // Threshold before ramping starts
-            const float fullPullValue = 0.95f;       // Value considered full pull
+            float indexFingerCurl = config.Controller.Input.FingerCurl_Index;
+            bool capacitiveTouch = config.Controller.Input.TriggerTouched;
 
-            // Return 0 if below activation threshold
-            if (rawTriggerValue < activationThreshold)
+            // Hybrid touch detection: works on ALL controller types
+            // - Capacitive touch: Index/Oculus Touch controllers (true capacitive sensors)
+            // - Finger curl > 0.6: When holding gun, finger curl increases to ~0.65 when touching trigger
+            bool isTouching = capacitiveTouch || (indexFingerCurl > 0.6f);
+
+            const float restingThreshold = 0.15f;    // Light touch/rest detection threshold
+            const float pullThreshold = 0.7f;        // Actual pull starts here
+            const float fullPullValue = 0.95f;       // Value considered full pull
+            const float fingerCurlTouchMin = 0.1f;   // When finger starts moving toward trigger
+            const float fingerCurlTouchMax = 0.65f;  // When finger fully touches trigger
+
+            // State 1: Trigger Discipline - Not touching at all
+            if (!isTouching && rawTriggerValue < restingThreshold)
                 return 0.0f;
 
-            // Remap from [activationThreshold, fullPullValue] to [0.0, 1.0]
-            float remapped = (rawTriggerValue - activationThreshold) / (fullPullValue - activationThreshold);
+            // State 2: Finger Resting on Trigger - Touching or light pressure but not pulling
+            if (rawTriggerValue < pullThreshold)
+            {
+                // Use finger curl to smoothly transition from discipline (0.0) to resting (0.35)
+                // FingerCurl ramps from ~0.0 to 0.65 when touching, we'll use that for smooth animation
+                float fingerCurlBlend = Mathf.Clamp01((indexFingerCurl - fingerCurlTouchMin) / (fingerCurlTouchMax - fingerCurlTouchMin));
+                float baseRestingValue = Mathf.Lerp(0.0f, 0.35f, fingerCurlBlend);
+
+                // If also applying trigger pressure, blend towards ready-to-pull (0.35 to 0.7)
+                float pressureBlend = rawTriggerValue / pullThreshold;
+                return Mathf.Lerp(baseRestingValue, 0.7f, pressureBlend);
+            }
+
+            // State 3: Actually Pulling - Remap to upper range [0.7, 1.0]
+            float pullProgress = (rawTriggerValue - pullThreshold) / (fullPullValue - pullThreshold);
+            float remapped = 0.7f + (0.3f * pullProgress);
             return Mathf.Clamp01(remapped);
         }
 
