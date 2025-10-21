@@ -14,6 +14,8 @@
 
 ![Pistol1-1](https://github.com/user-attachments/assets/05356a6a-b8e5-4eac-aeb2-26e3ac8dac3a)
 
+> [菅牧 典](https://bowlroll.net/file/256374) by [ニク](https://bowlroll.net/user/590204)
+
 # H3VR PlayerBody System
 
 A complete restructure and rewrite of the existing player body system by JerryAR and AngryNoob. Easier implementation and (hopefully!) better performance due to the slimmed down hierarchy.
