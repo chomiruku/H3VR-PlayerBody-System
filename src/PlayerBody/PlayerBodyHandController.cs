@@ -448,7 +448,7 @@ namespace PlayerBodySystem
             // Priority 0: If handguard position is locked, always use locked transform
             if (config.IsLockedToHandguardPosition && config.LockedForegripTransform != null)
             {
-                Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Using locked foregrip transform");
+                // Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Using locked foregrip transform");
                 return config.LockedForegripTransform;
             }
 
@@ -459,13 +459,13 @@ namespace PlayerBodySystem
                 // Check if directly holding TubeFedShotgunHandle
                 if (config.CurrentInteractable is TubeFedShotgunHandle shotgunHandle)
                 {
-                    Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Using direct TubeFedShotgunHandle transform: {shotgunHandle.transform.name}");
+                    // Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Using direct TubeFedShotgunHandle transform: {shotgunHandle.transform.name}");
                     return shotgunHandle.transform;
                 }
                 // Check if directly holding foregrip component
                 else if (config.CurrentInteractable is FVRAlternateGrip altGripComponent)
                 {
-                    Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Using direct FVRAlternateGrip transform: {altGripComponent.transform.name}");
+                    // Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Using direct FVRAlternateGrip transform: {altGripComponent.transform.name}");
                     return altGripComponent.transform;
                 }
                 // Check if holding gun through foregrip (IsAltHeld)
@@ -474,7 +474,7 @@ namespace PlayerBodySystem
                     // First try to use AltGrip if it's set
                     if (physObj.AltGrip != null)
                     {
-                        Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Using AltGrip direct transform (IsAltHeld): {physObj.AltGrip.transform.name}");
+                        // Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Using AltGrip direct transform (IsAltHeld): {physObj.AltGrip.transform.name}");
                         return physObj.AltGrip.transform;
                     }
                     // AltGrip is null - search for foregrip components (happens when grabbing foregrip first)
@@ -483,12 +483,12 @@ namespace PlayerBodySystem
                         FVRAlternateGrip[] foregrips = physObj.GetComponentsInChildren<FVRAlternateGrip>();
                         if (foregrips != null && foregrips.Length > 0)
                         {
-                            Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Found foregrip via GetComponentsInChildren: {foregrips[0].transform.name}");
+                            // Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Found foregrip via GetComponentsInChildren: {foregrips[0].transform.name}");
                             return foregrips[0].transform;
                         }
                         else
                         {
-                            Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] IsAltHeld but no foregrip found, falling through");
+                            // Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] IsAltHeld but no foregrip found, falling through");
                         }
                     }
                 }
@@ -497,26 +497,26 @@ namespace PlayerBodySystem
             // Priority 2: PoseOverride_Touch (for normal gun grip and other objects)
             if (config.CurrentInteractable.PoseOverride_Touch != null)
             {
-                Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Using PoseOverride_Touch: {config.CurrentInteractable.PoseOverride_Touch.name}");
+                // Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Using PoseOverride_Touch: {config.CurrentInteractable.PoseOverride_Touch.name}");
                 return config.CurrentInteractable.PoseOverride_Touch;
             }
 
             // Priority 3: PoseOverride (standard H3VR pose override)
             if (config.CurrentInteractable.PoseOverride != null)
             {
-                Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Using PoseOverride: {config.CurrentInteractable.PoseOverride.name}");
+                // Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Using PoseOverride: {config.CurrentInteractable.PoseOverride.name}");
                 return config.CurrentInteractable.PoseOverride;
             }
 
             // Priority 4: AltGrip transform (if available but not already used)
             if (config.CurrentInteractable is FVRPhysicalObject physObjAlt && physObjAlt.AltGrip != null)
             {
-                Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Using AltGrip transform as fallback: {physObjAlt.AltGrip.transform.name}");
+                // Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Using AltGrip transform as fallback: {physObjAlt.AltGrip.transform.name}");
                 return physObjAlt.AltGrip.transform;
             }
 
             // Priority 5: Fallback - Direct interactable transform
-            Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Using fallback interactable transform: {config.CurrentInteractable.transform.name}");
+            // Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Using fallback interactable transform: {config.CurrentInteractable.transform.name}");
             return config.CurrentInteractable.transform;
         }
 
@@ -540,7 +540,7 @@ namespace PlayerBodySystem
                     // For all alternate grips (including shotguns and regular handguards), use direct transform (center position)
                     // This should provide more consistent positioning
                     config.LockedForegripTransform = config.CurrentInteractable.transform;
-                    Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Locking foregrip with direct transform (center position)");
+                    // Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Locking foregrip with direct transform (center position)");
                 }
             }
         }
@@ -573,33 +573,33 @@ namespace PlayerBodySystem
                 if (config.LockedForegripReference is TubeFedShotgunHandle)
                 {
                     lockedGripId = GripIds.TubeFedShotgunHandle;
-                    Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Locked foregrip is TubeFedShotgunHandle");
+                    // Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Locked foregrip is TubeFedShotgunHandle");
                 }
                 else if (config.LockedForegripReference is FVRAlternateGrip lockedAltGrip &&
                          lockedAltGrip.PrimaryObject != null &&
                          typeof(TubeFedShotgun).IsAssignableFrom(lockedAltGrip.PrimaryObject.GetType()))
                 {
                     lockedGripId = GripIds.TubeFedShotgunHandle;
-                    Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Locked foregrip parent is TubeFedShotgun, using TubeFedShotgunHandle pose");
+                    // Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Locked foregrip parent is TubeFedShotgun, using TubeFedShotgunHandle pose");
                 }
 
                 if (stillHoldingForegrip)
                 {
                     // Still holding the foregrip - maintain handguard position
-                    Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Locked to handguard, still holding foregrip");
+                    // Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Locked to handguard, still holding foregrip");
                     return lockedGripId;
                 }
                 else if (holdingForegripsParentGun)
                 {
                     // Gun transferred to this hand - still maintain handguard position
                     // Keep using handguard pose since we originally grabbed it via the foregrip
-                    Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Locked to handguard, gun transferred but maintaining handguard pose");
+                    // Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Locked to handguard, gun transferred but maintaining handguard pose");
                     return lockedGripId;
                 }
                 else
                 {
                     // User released - unlock
-                    Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Unlocking handguard position");
+                    // Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Unlocking handguard position");
                     config.IsLockedToHandguardPosition = false;
                     config.LockedForegripReference = null;
                     config.LockedForegripTransform = null;
@@ -609,14 +609,14 @@ namespace PlayerBodySystem
             if (config.CurrentInteractable != null)
             {
                 Type currentInteractableType = config.CurrentInteractable.GetType();
-                Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] CurrentInteractable type: {currentInteractableType.Name}");
+                // Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] CurrentInteractable type: {currentInteractableType.Name}");
 
                 // Grabbing gun
                 if (typeof(FVRFireArm).IsAssignableFrom(currentInteractableType))
                 {
                     // Check if this gun is being held through an alternate grip (foregrip)
                     FVRPhysicalObject physObj = config.CurrentInteractable as FVRPhysicalObject;
-                    Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Gun detected. AltGrip: {physObj?.AltGrip?.name}, IsAltHeld: {physObj?.IsAltHeld}");
+                    // Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Gun detected. AltGrip: {physObj?.AltGrip?.name}, IsAltHeld: {physObj?.IsAltHeld}");
 
                     if (physObj != null && physObj.IsAltHeld)
                     {
@@ -624,12 +624,12 @@ namespace PlayerBodySystem
                         // Check if it's a TubeFedShotgun - use shotgun handle pose instead of generic handguard
                         if (typeof(TubeFedShotgun).IsAssignableFrom(currentInteractableType))
                         {
-                            Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] TubeFedShotgun held through foregrip, using TubeFedShotgunHandle pose");
+                            // Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] TubeFedShotgun held through foregrip, using TubeFedShotgunHandle pose");
                             gripId = GripIds.TubeFedShotgunHandle;
                         }
                         else
                         {
-                            Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Gun held through foregrip, using Handguard pose");
+                            // Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Gun held through foregrip, using Handguard pose");
                             gripId = GripIds.Handguard;
                         }
                     }
@@ -644,7 +644,7 @@ namespace PlayerBodySystem
                 // Grabbing tube fed shotgun handle (MUST come before FVRAlternateGrip check since it's a subclass)
                 else if (typeof(TubeFedShotgunHandle).IsAssignableFrom(currentInteractableType))
                 {
-                    Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] MATCHED TubeFedShotgunHandle!");
+                    // Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] MATCHED TubeFedShotgunHandle!");
                     gripId = GripIds.TubeFedShotgunHandle;
                     TubeFedShotgunHandle shotgunHandle = config.CurrentInteractable as TubeFedShotgunHandle;
                     TryLockToAlternateGrip(config, shotgunHandle?.Shotgun);
@@ -739,14 +739,14 @@ namespace PlayerBodySystem
                 // Grabbing foregrip
                 else if (typeof(FVRAlternateGrip).IsAssignableFrom(currentInteractableType))
                 {
-                    Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] MATCHED FVRAlternateGrip!");
+                    // Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] MATCHED FVRAlternateGrip!");
                     FVRAlternateGrip altGrip = config.CurrentInteractable as FVRAlternateGrip;
 
                     // Check if the parent gun is a TubeFedShotgun
                     if (altGrip?.PrimaryObject != null &&
                         typeof(TubeFedShotgun).IsAssignableFrom(altGrip.PrimaryObject.GetType()))
                     {
-                        Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] FVRAlternateGrip parent is TubeFedShotgun, using TubeFedShotgunHandle pose");
+                        // Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] FVRAlternateGrip parent is TubeFedShotgun, using TubeFedShotgunHandle pose");
                         gripId = GripIds.TubeFedShotgunHandle;
                     }
                     else
