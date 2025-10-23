@@ -70,6 +70,15 @@ namespace PlayerBodySystem
             public Transform ikTarget;
             [Tooltip("Animator bool parameter name for this grip type")]
             public string animatorParameter;
+            [Tooltip("If true, hand follows the rotation of the grabbed gameobject (e.g., bolt handles, bolt action handles). If false, hand follows controller rotation for more natural poses.")]
+            public bool followGameObjectRotation = true;
+            [Tooltip("Optional GameObject to use as rotation offset source. If set, this GameObject's rotation will be captured at initialization and used as the offset. If not set, rotationOffsetEuler will be used instead. Applied when followGameObjectRotation is FALSE (controller rotation mode).")]
+            public Transform rotationOffsetSource;
+            [Tooltip("Rotation offset in euler angles (X, Y, Z) applied when followGameObjectRotation is FALSE (controller rotation mode). Only used if rotationOffsetSource is not set.")]
+            public Vector3 rotationOffsetEuler = Vector3.zero;
+
+            [HideInInspector]
+            public Quaternion cachedRotationOffset = Quaternion.identity;
         }
 
         [Serializable]
@@ -176,7 +185,7 @@ namespace PlayerBodySystem
         }
 
         /// <summary>
-        /// Initialize grip mappings from GripMappings array
+        /// Initialize grip mappings from GripMappings array and cache rotation offsets
         /// </summary>
         private void InitializeGripMappings(HandConfig config)
         {
@@ -189,6 +198,16 @@ namespace PlayerBodySystem
                     if (!string.IsNullOrEmpty(mapping.gripId))
                     {
                         config.gripMappingDict[mapping.gripId] = mapping;
+
+                        // Cache rotation offset at initialization
+                        if (mapping.rotationOffsetSource != null)
+                        {
+                            mapping.cachedRotationOffset = mapping.rotationOffsetSource.rotation;
+                        }
+                        else
+                        {
+                            mapping.cachedRotationOffset = Quaternion.Euler(mapping.rotationOffsetEuler);
+                        }
                     }
                 }
             }
@@ -273,6 +292,14 @@ namespace PlayerBodySystem
         }
 
         /// <summary>
+        /// Get cached rotation offset from GripMapping (initialized once at startup)
+        /// </summary>
+        private Quaternion GetRotationOffset(GripMapping gripMapping)
+        {
+            return gripMapping.cachedRotationOffset;
+        }
+
+        /// <summary>
         /// New finger tracking code using humanoid rig animation properties and blend trees
         /// </summary>
         private void UpdateFingerTracking(HandConfig config)
@@ -327,17 +354,32 @@ namespace PlayerBodySystem
                     // Apply IK offset to the selected transform
                     if (targetTransform != null)
                     {
-                        Vector3 offsetPos = config.OrigIKParentPos;
-                        Quaternion offsetRot = config.OrigIKParentRot;
-
-                        if (!config.IKParent.position.Approximately(targetTransform.TransformPoint(offsetPos)))
-                        //if (!config.IKParent.position.Approximately(targetTransform.position))
+                        // Always update position to the object's position
+                        if (!config.IKParent.position.Approximately(targetTransform.position))
                             config.IKParent.position = targetTransform.position;
-                            //config.IKParent.position = targetTransform.TransformPoint(offsetPos);
-                        if (!config.IKParent.rotation.Approximately(targetTransform.TransformRotation(offsetRot)))
-                        //if (!config.IKParent.rotation.Approximately(targetTransform.rotation))
-                            config.IKParent.rotation = targetTransform.rotation;
-                            //config.IKParent.rotation = targetTransform.TransformRotation(offsetRot);
+
+                        // Choose rotation source based on followGameObjectRotation setting
+                        if (currentGrip.followGameObjectRotation)
+                        {
+                            // Follow the object's rotation (e.g., for handguards, top covers)
+                            // This maintains the hand pose relative to the object as it rotates
+                            // Use Approximately check since object rotation doesn't update every frame
+                            if (!config.IKParent.rotation.Approximately(targetTransform.rotation))
+                                config.IKParent.rotation = targetTransform.rotation;
+                        }
+                        else
+                        {
+                            // Follow controller's rotation instead of object rotation
+                            // This keeps hand angles natural when manipulating things like bolt handles
+                            // Position is still at the object, but rotation follows the controller
+                            // Apply rotation offset to align with unpredictable controller orientations
+                            // Always update since controller is constantly moving
+                            Quaternion baseRotation = config.Controller.transform.rotation;
+                            Quaternion offsetRotation = GetRotationOffset(currentGrip);
+                            Quaternion finalRotation = baseRotation * offsetRotation;
+
+                            config.IKParent.rotation = finalRotation;
+                        }
                     }
                 }
                 // Double Hand Grab - Use simplified priority for other hand's object
@@ -357,14 +399,29 @@ namespace PlayerBodySystem
 
                     if (targetTransform != null)
                     {
+                        // Always update position
                         if (!config.IKParent.position.Approximately(targetTransform.TransformPoint(config.OrigIKParentPos)))
                         //if (!config.IKParent.position.Approximately(targetTransform.position))
                             config.IKParent.position = targetTransform.position;
                             //config.IKParent.position = targetTransform.TransformPoint(config.OrigIKParentPos);
-                        if (!config.IKParent.rotation.Approximately(targetTransform.TransformRotation(config.OrigIKParentRot)))
-                        //if (!config.IKParent.rotation.Approximately(targetTransform.rotation))
-                            config.IKParent.rotation = targetTransform.rotation;
-                            //config.IKParent.rotation = targetTransform.TransformRotation(config.OrigIKParentRot);
+
+                        // Only update rotation if followGameObjectRotation is true
+                        if (currentGrip.followGameObjectRotation)
+                        {
+                            if (!config.IKParent.rotation.Approximately(targetTransform.rotation))
+                                config.IKParent.rotation = targetTransform.rotation;
+                        }
+                        else
+                        {
+                            // Use controller's rotation instead of gameobject rotation
+                            // Apply rotation offset to align with unpredictable controller orientations
+                            Quaternion baseRotation = config.Controller.transform.rotation;
+                            Quaternion offsetRotation = GetRotationOffset(currentGrip);
+                            Quaternion finalRotation = baseRotation * offsetRotation;
+
+                            if (!config.IKParent.rotation.Approximately(finalRotation))
+                                config.IKParent.rotation = finalRotation;
+                        }
                     }
                 }
             }
