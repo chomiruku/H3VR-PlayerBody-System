@@ -24,6 +24,8 @@ A complete restructure and rewrite of the existing player body system by JerryAR
 
 **Check the [wiki](https://github.com/chomiruku/H3VR-PlayerBody-System/wiki) on how to make your own PlayerBodies**
 
+# [Changelog](https://github.com/chomiruku/H3VR-PlayerBody-System/wiki/Changelog)
+
 ## Building from Source
 
 ### Prerequisites

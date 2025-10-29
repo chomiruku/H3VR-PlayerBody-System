@@ -1,5 +1,5 @@
 ﻿// Original Script by AngryNoob
-// Modification by Cityrobo
+// Modification by Cityrobo, chomilk
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -15,6 +15,45 @@ namespace PlayerBodySystem
 {
     /// <summary>
     /// Controls hand animations and tracking
+    ///
+    /// CUSTOM GUN-SPECIFIC GRIP POSES:
+    /// You can define custom hand poses for specific guns or gun families using pattern matching in the gripId field.
+    ///
+    /// Pattern Syntax:
+    /// - EXACT:gunname:griptype       - Matches exact GameObject name (e.g., "EXACT:krissvector45:HandGuard")
+    /// - STARTSWITH:pattern:griptype  - Matches names starting with pattern (e.g., "STARTSWITH:krissvector:HandGuard")
+    /// - CONTAINS:pattern:griptype    - Matches names containing pattern (e.g., "CONTAINS:vector:HandGuard")
+    /// - griptype                     - Default grip (no pattern matching)
+    ///
+    /// Matching Priority (most specific to least specific):
+    /// 1. EXACT matches
+    /// 2. STARTSWITH matches
+    /// 3. CONTAINS matches
+    /// 4. Default grip
+    ///
+    /// Example Use Cases:
+    /// 1. Vertical foregrip for Kriss Vector family:
+    ///    - gripId: "STARTSWITH:krissvector:HandGuard"
+    ///    - Will match: krissvector45, krissvector9mm, krissvector45acp, etc.
+    ///
+    /// 2. Single gun override:
+    ///    - gripId: "EXACT:krissvector45:HandGuard"
+    ///    - Will match: Only krissvector45 (exact GameObject name)
+    ///
+    /// 3. Generic vector family:
+    ///    - gripId: "CONTAINS:vector:HandGuard"
+    ///    - Will match: Any gun with "vector" in the name
+    ///
+    /// All pattern matching is case-insensitive.
+    ///
+    /// How to Set Up in Unity Inspector:
+    /// 1. Add your default "HandGuard" grip mapping as usual
+    /// 2. Create additional grip mappings for specific guns:
+    ///    - Set gripId to "STARTSWITH:krissvector:HandGuard" (or EXACT/CONTAINS)
+    ///    - Configure the IK target and animator parameter for this custom pose
+    ///    - Adjust rotation/position as needed for the vertical grip
+    /// 3. When you grab a gun named "krissvector45", it will use the custom pose
+    /// 4. When you grab other guns, they'll use the default "HandGuard" pose
     /// </summary>
     public class PlayerBodyHandController : MonoBehaviour
     {
@@ -64,7 +103,12 @@ namespace PlayerBodySystem
         [Serializable]
         public class GripMapping
         {
-            [Tooltip("Unique identifier for this grip type (e.g., 'Pistol', 'Magazine', 'Foregrip')")]
+            [Tooltip("Unique identifier for this grip type (e.g., 'Pistol', 'Magazine', 'Foregrip')\n\n" +
+                     "PATTERN MATCHING (for gun-specific custom poses):\n" +
+                     "- EXACT:gunname:griptype - Exact match (e.g., 'EXACT:krissvector45:HandGuard')\n" +
+                     "- STARTSWITH:pattern:griptype - Starts with pattern (e.g., 'STARTSWITH:krissvector:HandGuard')\n" +
+                     "- CONTAINS:pattern:griptype - Contains pattern (e.g., 'CONTAINS:vector:HandGuard')\n" +
+                     "Priority: EXACT > STARTSWITH > CONTAINS > default grip")]
             public string gripId;
             [Tooltip("IK target transform for this grip type")]
             public Transform ikTarget;
@@ -76,9 +120,30 @@ namespace PlayerBodySystem
             public Transform rotationOffsetSource;
             [Tooltip("Rotation offset in euler angles (X, Y, Z) applied when followGameObjectRotation is FALSE (controller rotation mode). Only used if rotationOffsetSource is not set.")]
             public Vector3 rotationOffsetEuler = Vector3.zero;
+            [Tooltip("If true, this grip mapping will be ignored when using MirrorIK functions in PlayerBodyCopyTools.")]
+            public bool ignoreMirrorIK = false;
 
             [HideInInspector]
             public Quaternion cachedRotationOffset = Quaternion.identity;
+
+            // Pattern matching fields (parsed from gripId)
+            [HideInInspector]
+            public GripMatchMode matchMode = GripMatchMode.Default;
+            [HideInInspector]
+            public string matchPattern = "";
+            [HideInInspector]
+            public string baseGripType = "";
+        }
+
+        /// <summary>
+        /// Matching modes for gun-specific grip poses
+        /// </summary>
+        public enum GripMatchMode
+        {
+            Default,      // Standard grip matching (no pattern)
+            Exact,        // Exact GameObject name match
+            StartsWith,   // GameObject name starts with pattern
+            Contains      // GameObject name contains pattern
         }
 
         [Serializable]
@@ -148,10 +213,20 @@ namespace PlayerBodySystem
             public const string PinnedGrenade = "PinnedGrenade";
             public const string TopCover = "TopCover";
             public const string DoubleHand = "DoubleHand";
+            public const string DoubleHandDerringer = "DoubleHandDerringer";
             public const string ClosedBoltHandle = "ClosedBoltHandle";
             public const string ClosedBolt = "ClosedBolt";
             public const string BoltActionHandle = "BoltActionHandle";
             public const string TubeFedShotgunHandle = "TubeFedShotgunHandle";
+            public const string Derringer = "Derringer";
+            public const string OpenBoltChargingHandle = "OpenBoltChargingHandle";
+            public const string OpenBoltReceiverBolt = "OpenBoltReceiverBolt";
+            public const string OpenBoltRotatingChargingHandle = "OpenBoltRotatingChargingHandle";
+            public const string LeverActionFirearm = "LeverActionFirearm";
+            public const string LeverActionFirearmUnlocked = "LeverActionFirearmUnlocked";
+            public const string CappedGrenade = "CappedGrenade";
+            public const string G11ChargingHandle = "G11ChargingHandle";
+            public const string RPG7Foregrip = "RPG7Foregrip";
         }
 
         public void Awake()
@@ -199,6 +274,9 @@ namespace PlayerBodySystem
                     {
                         config.gripMappingDict[mapping.gripId] = mapping;
 
+                        // Parse pattern matching syntax (EXACT:name:grip, STARTSWITH:pattern:grip, CONTAINS:pattern:grip)
+                        ParseGripPattern(mapping);
+
                         // Cache rotation offset at initialization
                         if (mapping.rotationOffsetSource != null)
                         {
@@ -215,6 +293,156 @@ namespace PlayerBodySystem
             {
                 Debug.LogError($"GripMappings array is empty for {(config.IsThisTheRightHand ? "right" : "left")} hand! Please configure GripMappings in the inspector.");
             }
+        }
+
+        /// <summary>
+        /// Parse grip pattern from gripId string (e.g., "EXACT:krissvector45:HandGuard")
+        /// </summary>
+        private void ParseGripPattern(GripMapping mapping)
+        {
+            string gripId = mapping.gripId;
+
+            // Check for pattern matching syntax
+            if (gripId.Contains(":"))
+            {
+                string[] parts = gripId.Split(':');
+                if (parts.Length == 3)
+                {
+                    string modeStr = parts[0].ToUpper();
+                    mapping.matchPattern = parts[1].ToLower(); // Case-insensitive matching
+                    mapping.baseGripType = parts[2];
+
+                    switch (modeStr)
+                    {
+                        case "EXACT":
+                            mapping.matchMode = GripMatchMode.Exact;
+                            break;
+                        case "STARTSWITH":
+                            mapping.matchMode = GripMatchMode.StartsWith;
+                            break;
+                        case "CONTAINS":
+                            mapping.matchMode = GripMatchMode.Contains;
+                            break;
+                        default:
+                            Debug.LogWarning($"Unknown grip match mode '{modeStr}' in gripId '{gripId}'. Using Default mode.");
+                            mapping.matchMode = GripMatchMode.Default;
+                            mapping.baseGripType = gripId;
+                            break;
+                    }
+                }
+                else
+                {
+                    // Invalid format, treat as default
+                    mapping.matchMode = GripMatchMode.Default;
+                    mapping.baseGripType = gripId;
+                }
+            }
+            else
+            {
+                // No pattern, use standard grip matching
+                mapping.matchMode = GripMatchMode.Default;
+                mapping.baseGripType = gripId;
+            }
+        }
+
+        /// <summary>
+        /// Get the object name to use for pattern matching
+        /// For foregrips/alternate grips, returns the parent gun's name instead of the foregrip's name
+        /// This allows pattern matching to work on gun names regardless of which part you're holding
+        /// </summary>
+        private string GetObjectNameForPatternMatching(HandConfig config)
+        {
+            if (config.CurrentInteractable == null)
+                return null;
+
+            // Check if we're holding a foregrip/alternate grip
+            if (config.CurrentInteractable is FVRAlternateGrip altGrip)
+            {
+                // Use the parent gun's name for pattern matching
+                if (altGrip.PrimaryObject != null)
+                    return altGrip.PrimaryObject.gameObject.name;
+            }
+            // Check if we're holding a TubeFedShotgunHandle
+            else if (config.CurrentInteractable is TubeFedShotgunHandle shotgunHandle)
+            {
+                // Use the parent shotgun's name for pattern matching
+                if (shotgunHandle.Shotgun != null)
+                    return shotgunHandle.Shotgun.gameObject.name;
+            }
+            // Check if we're holding a gun through its foregrip (IsAltHeld)
+            else if (config.CurrentInteractable is FVRPhysicalObject physObj && physObj.IsAltHeld)
+            {
+                // Already holding the gun itself, just grabbed via foregrip
+                return physObj.gameObject.name;
+            }
+
+            // Default: return the object's own name
+            return config.CurrentInteractable.gameObject.name;
+        }
+
+        /// <summary>
+        /// Find the best matching grip for a given grip type and object name
+        /// Priority: EXACT match > STARTSWITH match > CONTAINS match > default grip
+        /// </summary>
+        private GripMapping FindBestGripMatch(HandConfig config, string baseGripType, string objectName)
+        {
+            if (string.IsNullOrEmpty(objectName))
+            {
+                // No object name, fall back to standard grip
+                if (config.gripMappingDict.TryGetValue(baseGripType, out GripMapping defaultGrip))
+                    return defaultGrip;
+                return null;
+            }
+
+            string objectNameLower = objectName.ToLower();
+            GripMapping exactMatch = null;
+            GripMapping startsWithMatch = null;
+            GripMapping containsMatch = null;
+            GripMapping defaultMatch = null;
+
+            // Search through all grip mappings for this base type
+            foreach (var mapping in config.GripMappings)
+            {
+                // Skip if base grip type doesn't match
+                if (mapping.baseGripType != baseGripType)
+                    continue;
+
+                // Check match type
+                switch (mapping.matchMode)
+                {
+                    case GripMatchMode.Exact:
+                        if (objectNameLower == mapping.matchPattern && exactMatch == null)
+                            exactMatch = mapping;
+                        break;
+
+                    case GripMatchMode.StartsWith:
+                        if (objectNameLower.StartsWith(mapping.matchPattern) && startsWithMatch == null)
+                            startsWithMatch = mapping;
+                        break;
+
+                    case GripMatchMode.Contains:
+                        if (objectNameLower.Contains(mapping.matchPattern) && containsMatch == null)
+                            containsMatch = mapping;
+                        break;
+
+                    case GripMatchMode.Default:
+                        if (defaultMatch == null)
+                            defaultMatch = mapping;
+                        break;
+                }
+            }
+
+            // Return best match based on priority
+            if (exactMatch != null) return exactMatch;
+            if (startsWithMatch != null) return startsWithMatch;
+            if (containsMatch != null) return containsMatch;
+            if (defaultMatch != null) return defaultMatch;
+
+            // No match found, try dictionary lookup as final fallback
+            if (config.gripMappingDict.TryGetValue(baseGripType, out GripMapping fallback))
+                return fallback;
+
+            return null;
         }
 
         public void OnDestroy()
@@ -337,7 +565,14 @@ namespace PlayerBodySystem
                 }
             }
 
-            if (gripId != null && config.gripMappingDict.TryGetValue(gripId, out GripMapping currentGrip))
+            // Get the GameObject name for pattern matching
+            // For foregrips, use the parent gun's name instead of the foregrip's name
+            string objectName = GetObjectNameForPatternMatching(config);
+
+            // Find the best matching grip (supports pattern matching for gun-specific poses)
+            GripMapping currentGrip = gripId != null ? FindBestGripMatch(config, gripId, objectName) : null;
+
+            if (currentGrip != null)
             {
                 // Grabbing something or double handing
                 if (!string.IsNullOrEmpty(currentGrip.animatorParameter))
@@ -346,7 +581,7 @@ namespace PlayerBodySystem
                 }
                 config.ConnectedIKArm.target = currentGrip.ikTarget;
 
-                if (gripId != GripIds.DoubleHand)
+                if (gripId != GripIds.DoubleHand && gripId != GripIds.DoubleHandDerringer)
                 {
                     // Use new priority-based transform selection
                     Transform targetTransform = GetTransformForIK(config, gripId);
@@ -383,7 +618,7 @@ namespace PlayerBodySystem
                     }
                 }
                 // Double Hand Grab - Use simplified priority for other hand's object
-                else if (gripId == GripIds.DoubleHand)
+                else if (gripId == GripIds.DoubleHand || gripId == GripIds.DoubleHandDerringer)
                 {
                     // For double-hand grip, check other hand's object with simplified priority
                     Transform targetTransform = null;
@@ -438,9 +673,8 @@ namespace PlayerBodySystem
                 if (!config.IKParent.localRotation.Approximately(config.OrigIKParentRot)) config.IKParent.localRotation = config.OrigIKParentRot;
             }
 
-            // Handle trigger press animation (only for pistol grip)
-            if (gripId == GripIds.Gun) PlayerBodyAnimator.SetFloat(config.TriggerPressedBoolTransitionName, GetTriggerPullValue(config));
-            else PlayerBodyAnimator.SetFloat(config.TriggerPressedBoolTransitionName, 0.0f);
+            // Handle trigger press animation (always set, users can choose to use it in animator or not)
+            PlayerBodyAnimator.SetFloat(config.TriggerPressedBoolTransitionName, GetTriggerPullValue(config));
         }
 
         /// <summary>
@@ -481,9 +715,9 @@ namespace PlayerBodySystem
                 }
             }
 
-            // Handle trigger pull for pistol grip
+            // Handle trigger pull for gun grips, derringer, and RPG7 foregrip
             float triggerPull = handIndex == 0 ? LeftHandDebbuggingTriggerPull : RightHandDebbuggingTriggerPull;
-            if (debugGrip != null && debugGrip.gripId == GripIds.Gun)
+            if (debugGrip != null && (debugGrip.gripId == GripIds.Gun || debugGrip.gripId == GripIds.Derringer || debugGrip.gripId == GripIds.RPG7Foregrip))
             {
                 PlayerBodyAnimator.SetFloat(config.TriggerPressedBoolTransitionName, triggerPull);
             }
@@ -603,6 +837,36 @@ namespace PlayerBodySystem
         }
 
         /// <summary>
+        /// Check if a LeverActionFirearm's lever is unlocked (not at rear position)
+        /// Returns true if lever is NOT at rear position (action open or cycling)
+        /// This is used to switch to a hand pose that doesn't clip when the lever is being operated
+        /// </summary>
+        private bool IsLeverActionUnlocked(LeverActionFirearm leverGun)
+        {
+            if (leverGun == null) return false;
+
+            // Access private fields using reflection since they're not public
+            // m_curLeverPos: Current lever position (Forward, Middle, or Rear)
+
+            System.Reflection.FieldInfo curLeverPosField = typeof(LeverActionFirearm).GetField("m_curLeverPos", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+
+            if (curLeverPosField == null)
+            {
+                Debug.LogWarning("Failed to get lever action fields via reflection - lever unlock detection will not work");
+                return false;
+            }
+
+            // Get ZPos enum value (0=Forward, 1=Middle, 2=Rear)
+            int curLeverPos = (int)curLeverPosField.GetValue(leverGun);
+
+            // Use the unlocked pose when lever is NOT at rear position
+            // This prevents hand clipping when cycling the lever
+            // ZPos.Rear = 2, so return true when NOT at rear (0 or 1)
+            const int ZPos_Rear = 2;
+            return curLeverPos != ZPos_Rear;
+        }
+
+        /// <summary>
         /// Determine the type of object grabbed by the hand
         /// Returns the grip ID string, or null if nothing is grabbed
         /// </summary>
@@ -678,8 +942,15 @@ namespace PlayerBodySystem
                     if (physObj != null && physObj.IsAltHeld)
                     {
                         // THIS hand is holding gun through foregrip (IsAltHeld means this hand grabbed via foregrip)
+
+                        // Check if it's an RPG7 held through its foregrip - use RPG7Foregrip pose instead of generic handguard
+                        if (physObj.AltGrip != null && physObj.AltGrip.GetType().Name == "RPG7Foregrip")
+                        {
+                            // Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] RPG7 held through foregrip, using RPG7Foregrip pose");
+                            gripId = GripIds.RPG7Foregrip;
+                        }
                         // Check if it's a TubeFedShotgun - use shotgun handle pose instead of generic handguard
-                        if (typeof(TubeFedShotgun).IsAssignableFrom(currentInteractableType))
+                        else if (typeof(TubeFedShotgun).IsAssignableFrom(currentInteractableType))
                         {
                             // Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] TubeFedShotgun held through foregrip, using TubeFedShotgunHandle pose");
                             gripId = GripIds.TubeFedShotgunHandle;
@@ -692,12 +963,40 @@ namespace PlayerBodySystem
                     }
                     else
                     {
-                        // Gun is being held normally by the trigger grip - use Gun pose
-                        gripId = GripIds.Gun;
+                        // Gun is being held normally by the trigger grip
+                        // Check if it's a Derringer - use Derringer pose instead of generic Gun pose
+                        if (currentInteractableType.Name == "Derringer")
+                        {
+                            // Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] Derringer detected, using Derringer pose");
+                            gripId = GripIds.Derringer;
+                        }
+                        // Check if it's a LeverActionFirearm - check if lever is unlocked to avoid clipping
+                        else if (typeof(LeverActionFirearm).IsAssignableFrom(currentInteractableType))
+                        {
+                            LeverActionFirearm leverGun = config.CurrentInteractable as LeverActionFirearm;
+                            bool isUnlocked = IsLeverActionUnlocked(leverGun);
+
+                            // Use unlocked pose when lever is open/cycling to avoid hand clipping
+                            gripId = isUnlocked ? GripIds.LeverActionFirearmUnlocked : GripIds.LeverActionFirearm;
+                            // Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] LeverActionFirearm detected, lever {(isUnlocked ? "UNLOCKED" : "LOCKED")}, using {gripId} pose");
+                        }
+                        else
+                        {
+                            // Standard gun pose
+                            gripId = GripIds.Gun;
+                        }
                     }
                 }
                 // Grabbing mag
                 else if (typeof(FVRFireArmMagazine) == currentInteractableType) gripId = GripIds.Magazine;
+                // Grabbing RPG7 foregrip (MUST come before FVRAlternateGrip check since it's a subclass)
+                // RPG7Foregrip has trigger controls, so it should use a gun-like pose with trigger animation
+                else if (currentInteractableType.Name == "RPG7Foregrip")
+                {
+                    // Debug.Log($"[{(config.IsThisTheRightHand ? "RIGHT" : "LEFT")}] MATCHED RPG7Foregrip!");
+                    gripId = GripIds.RPG7Foregrip;
+                    // Don't lock to alternate grip for RPG7 - it's meant to be held like a gun grip
+                }
                 // Grabbing tube fed shotgun handle (MUST come before FVRAlternateGrip check since it's a subclass)
                 else if (typeof(TubeFedShotgunHandle).IsAssignableFrom(currentInteractableType))
                 {
@@ -720,12 +1019,17 @@ namespace PlayerBodySystem
                 else if (typeof(ClosedBolt) == currentInteractableType) gripId = GripIds.ClosedBolt;
                 // Grabbing bolt action rifle handle
                 else if (typeof(BoltActionRifle_Handle) == currentInteractableType) gripId = GripIds.BoltActionHandle;
-                /*// Grabbing open bolt charging handle
-                else if (typeof(OpenBoltChargingHandle) == currentInteractableType) grabbedObjectIndex = 12;
+                // Grabbing open bolt charging handle
+                else if (typeof(OpenBoltChargingHandle) == currentInteractableType) gripId = GripIds.OpenBoltChargingHandle;
                 // Grabbing open bolt receiver bolt
-                else if (typeof(OpenBoltReceiverBolt) == currentInteractableType) grabbedObjectIndex = 13;
+                else if (typeof(OpenBoltReceiverBolt) == currentInteractableType) gripId = GripIds.OpenBoltReceiverBolt;
                 // Grabbing open bolt rotating charging handle
-                else if (typeof(OpenBoltRotatingChargingHandle) == currentInteractableType) grabbedObjectIndex = 14;
+                else if (typeof(OpenBoltRotatingChargingHandle) == currentInteractableType) gripId = GripIds.OpenBoltRotatingChargingHandle;
+                // Grabbing capped grenade
+                else if (typeof(FVRCappedGrenade) == currentInteractableType) gripId = GripIds.CappedGrenade;
+                // Grabbing G11 charging handle
+                else if (typeof(G11ChargingHandle) == currentInteractableType) gripId = GripIds.G11ChargingHandle;
+                /*
                 // Grabbing revolver cylinder
                 else if (typeof(RevolverCylinder) == currentInteractableType) grabbedObjectIndex = 15;
                 // Grabbing revolver ejector
@@ -739,8 +1043,8 @@ namespace PlayerBodySystem
                 else if (typeof(OpenBoltRipcord) == currentInteractableType) grabbedObjectIndex = 19;
                 // Grabbing open bolt dust cover
                 else if (typeof(OpenBoltDustCover) == currentInteractableType) grabbedObjectIndex = 20;
-                // Grabbing lever action tube action
-                else if (typeof(LeverActionTubeACtion) == currentInteractableType) grabbedObjectIndex = 21;
+                // Grabbing lever action firearm
+                else if (typeof(LeverActionFirearm) == currentInteractableType) grabbedObjectIndex = 21;
                 // Grabbing break action manual ejector
                 else if (typeof(BreakActionManualEjector) == currentInteractableType) grabbedObjectIndex = 22;
                 // Grabbing single action ejector rod
@@ -831,7 +1135,19 @@ namespace PlayerBodySystem
 
                 if (!otherHandUsingForegrip)
                 {
-                    gripId = GripIds.DoubleHand;
+                    // Check what type of gun the other hand is holding
+                    Type otherHandGunType = config.OtherHand.CurrentInteractable.GetType();
+
+                    // If other hand is holding a Derringer, use DoubleHandDerringer pose
+                    if (otherHandGunType.Name == "Derringer")
+                    {
+                        gripId = GripIds.DoubleHandDerringer;
+                    }
+                    else
+                    {
+                        // Standard two-handed grip for normal guns
+                        gripId = GripIds.DoubleHand;
+                    }
                 }
             }
             return gripId;
