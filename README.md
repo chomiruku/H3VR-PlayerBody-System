@@ -54,3 +54,6 @@ The following DLLs must be placed in the `dep/` folder before building:
 3. Restore NuGet packages
 4. Build the solution in Release configuration
 5. The compiled DLL will be output to the project root as `H3VRPlayerBodySystem.dll`
+
+# Visitors
+<img src="https://count.getloli.com/@chomilkh3vrpbsysfork?name=chomilkh3vrpbsysfork&theme=booru-touhoulat&padding=7&offset=0&align=top&scale=1&pixelated=1&darkmode=auto" alt="chomilkh3vrpbsysfork" />
